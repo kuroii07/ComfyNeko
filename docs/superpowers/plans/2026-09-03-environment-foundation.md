@@ -128,7 +128,7 @@ Report all diagnostic codes and test result. Do not commit automatically.
 - Consumes the profile from Task 1 and path result from Task 2.
 - Produces `PythonProbe { executable, version, import_status }` and optional `ApiProbe { reachable, comfy_version }`.
 
-- [ ] **Step 1: Write a failing test for command timeout conversion**
+- [x] **Step 1: Write a failing test for command timeout conversion**
 
 ```rust
 #[test]
@@ -138,22 +138,22 @@ fn timed_out_python_probe_returns_python_timeout_diagnostic() {
 }
 ```
 
-- [ ] **Step 2: Run the test to confirm failure**
+- [x] **Step 2: Run the test to confirm failure**
 
 Run: `cargo test -p comfyneko-core timed_out_python_probe_returns_python_timeout_diagnostic`
 
-- [ ] **Step 3: Implement bounded commands and loopback-only HTTP probing**
+- [x] **Step 3: Implement bounded commands and loopback-only HTTP probing**
 
 ```rust
 Command::new(python).args(["--version"]).kill_on_drop(true);
 let url = format!("http://127.0.0.1:{port}/system_stats");
 ```
 
-- [ ] **Step 4: Run focused tests and static checks**
+- [x] **Step 4: Run focused tests and static checks**
 
 Run: `cargo fmt --check && cargo clippy -p comfyneko-core -- -D warnings && cargo test -p comfyneko-core`
 
-- [ ] **Step 5: Stop at a review checkpoint**
+- [x] **Step 5: Stop at a review checkpoint**
 
 Confirm that unreachable API becomes a warning and no remote host is accepted. Do not commit automatically.
 

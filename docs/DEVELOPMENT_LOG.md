@@ -2,6 +2,18 @@
 
 本日志与 Git 提交同步维护。每条记录必须说明已验证与未验证事项，不以“已完成”替代测试证据。
 
+## 2026-09-03 — M1.3 有边界的运行时探测
+
+- 状态：完成。
+- 改动：新增 Python 探测，分别以超时上限执行 `--version` 与 `comfy` import 检查，超时会终止子进程；新增 API 探测，严格拒绝 `127.0.0.1` 以外的主机，只对本机 `GET /system_stats` 发起有限时连接。不可达本机 API 是警告；远程 API 是阻塞诊断。运行时预检在基础路径存在阻塞时不会执行 Python 或本机 API；但仍会拒绝远程 API，且绝不连接远程主机。
+- 诊断代码：`PYTHON_TIMEOUT`、`PYTHON_START_FAILED`、`PYTHON_WAIT_FAILED`、`PYTHON_OUTPUT_FAILED`、`PYTHON_COMMAND_FAILED`、`PYTHON_OUTPUT_EMPTY`、`API_HOST_NOT_ALLOWED`、`API_UNREACHABLE`。
+- 测试先行：已先记录 Python 超时转换、远程 API 拒绝、本机不可达 API 为警告三个预期失败测试；随后补充“未配置 Python 时也必须拒绝远程 API”的安全回归测试，先验证其因原先提前返回而失败，再完成最小修复并通过。
+- 验证：`cargo fmt --check`、`cargo clippy -p comfyneko-core -- -D warnings` 和 `cargo test -p comfyneko-core` 均通过（12 个单测，0 个失败）；另单独运行远程 API 安全回归测试通过。`git diff --check` 通过。
+- 环境：本机缺少 Clippy，已用 `rustup component add clippy` 安装后复验；`rustfmt` 已在 M1.1 安装。
+- 未验证：尚未对用户的真实 Python、ComfyUI 或 API 执行探测，也未创建、修改或扫描其任何目录；SQLite、Tauri command 与 React 向导留待 M1.4。
+- Git：实现提交 `e87c8dd`；本日志、README 与路线更新将以独立文档提交推送到 `feat/environment-profile`。
+- 下一步：M1.4 先搭建共享 UI 基础（Token、主题、i18n、导航、Tooltip、说明栏），再实现 SQLite 持久化与环境绑定向导。
+
 ## 2026-09-03 — M1.2 只读路径预检与诊断
 
 - 状态：完成。
