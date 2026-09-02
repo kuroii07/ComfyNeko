@@ -83,7 +83,7 @@ Report created files and test result. Do not commit automatically.
 - Consumes `EnvironmentProfile` and `Diagnostic` from Task 1.
 - Produces `probe_environment(candidate: &EnvironmentProfile) -> ProbeResult`.
 
-- [ ] **Step 1: Write failing tests for a valid fixture and a missing Python path**
+- [x] **Step 1: Write failing tests for a valid fixture and a missing Python path**
 
 ```rust
 #[test]
@@ -94,11 +94,11 @@ fn probe_marks_missing_python_as_blocking() {
 }
 ```
 
-- [ ] **Step 2: Run the focused tests to confirm failure**
+- [x] **Step 2: Run the focused tests to confirm failure**
 
 Run: `cargo test -p comfyneko-core probe_marks_missing_python_as_blocking`
 
-- [ ] **Step 3: Implement normalized allow-listed path checks and root probes**
+- [x] **Step 3: Implement normalized allow-listed path checks and root probes**
 
 ```rust
 pub fn validate_allowed_root(path: &Path) -> Result<PathBuf, Diagnostic> {
@@ -108,11 +108,11 @@ pub fn validate_allowed_root(path: &Path) -> Result<PathBuf, Diagnostic> {
 }
 ```
 
-- [ ] **Step 4: Verify valid, missing, unreadable, and non-ComfyUI fixture cases**
+- [x] **Step 4: Verify valid, missing, unreadable, and non-ComfyUI fixture cases**
 
 Run: `cargo test -p comfyneko-core environment_probe -- --nocapture`
 
-- [ ] **Step 5: Stop at a review checkpoint**
+- [x] **Step 5: Stop at a review checkpoint**
 
 Report all diagnostic codes and test result. Do not commit automatically.
 

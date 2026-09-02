@@ -2,6 +2,16 @@
 
 本日志与 Git 提交同步维护。每条记录必须说明已验证与未验证事项，不以“已完成”替代测试证据。
 
+## 2026-09-03 — M1.2 只读路径预检与诊断
+
+- 状态：完成。
+- 改动：新增路径规范化守卫与环境预检。根目录必须是含 `main.py` 的可读目录；Python 路径缺失会阻塞；不存在的资产目录只给警告且不会创建；误选普通文件会给出专用阻塞诊断。
+- 诊断代码：`COMFY_ROOT_NOT_FOUND`、`COMFY_ROOT_NOT_DIRECTORY`、`COMFY_ROOT_UNREADABLE`、`COMFY_ROOT_NOT_RECOGNIZED`、`PYTHON_NOT_CONFIGURED`、`PYTHON_NOT_FOUND`、`ASSET_ROOT_NOT_FOUND`、`ASSET_ROOT_NOT_DIRECTORY`、`ASSET_ROOT_UNREADABLE`。
+- 验证：先确认 `probe_environment` 不存在导致的预期编译失败；随后完成有效根目录、缺失 Python、无 `main.py`、普通文件根目录、缺失资产目录和普通文件资产目录的 6 条夹具测试。`cargo fmt --check` 通过，`cargo test -p comfyneko-core` 通过（7 个单测，0 个失败）。
+- 未验证：未模拟 Windows ACL 拒绝的真实目录；代码已通过 `canonicalize` 与 `read_dir` 以阻塞方式处理该情况。真实 Python 执行与 API 探测留待 M1.3。
+- Git：实现提交 `128fa4a`；本日志提交后推送 `feat/environment-profile`。
+- 下一步：M1.3 增加有超时上限的 Python 版本探测和仅允许 `127.0.0.1` 的可选 ComfyUI API 探测。
+
 ## 2026-09-03 — M1.1 环境领域类型
 
 - 状态：完成。
