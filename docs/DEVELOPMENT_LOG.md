@@ -2,6 +2,16 @@
 
 本日志与 Git 提交同步维护。每条记录必须说明已验证与未验证事项，不以“已完成”替代测试证据。
 
+## 2026-09-03 — M1.1 环境领域类型
+
+- 状态：完成。
+- 改动：建立 Rust 工作区与 `comfyneko-core`；新增 `EnvironmentProfile`、`EnvironmentRoots`、`ApiBinding`、`Diagnostic` 与 `Severity` 的可序列化领域类型。环境档案只保存路径和元数据，不执行文件修改。
+- 验证：先运行测试，得到预期失败 `E0432`（`EnvironmentProfile` 尚不存在）；实现后运行 `cargo fmt --check`、`cargo test -p comfyneko-core profile_round_trips_without_losing_windows_paths` 与 `cargo test -p comfyneko-core`，均通过（1 个单测，0 个失败）。
+- 环境：本机 Rust 缺少 `rustfmt`，已使用 `rustup component add rustfmt` 补齐后复验通过。
+- 未验证：尚未接入 Tauri 窗口、React UI、SQLite 或真实 ComfyUI 路径；这些不属于 M1.1。
+- Git：领域类型提交 `02c71b5`；本日志提交后推送 `feat/environment-profile`。
+- 下一步：M1.2 实现只读路径发现、ComfyUI 根目录识别与阻塞诊断。
+
 ## 2026-09-03 — M1 开发规范对齐
 
 - 状态：完成。

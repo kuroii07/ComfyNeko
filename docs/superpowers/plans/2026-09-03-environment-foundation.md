@@ -35,7 +35,7 @@
 **Interfaces:**
 - Produces `EnvironmentProfile`, `EnvironmentRoots`, `ApiBinding`, `Diagnostic`, and `Severity` for all later tasks.
 
-- [ ] **Step 1: Write the failing Rust serialization test**
+- [x] **Step 1: Write the failing Rust serialization test**
 
 ```rust
 #[test]
@@ -47,11 +47,11 @@ fn profile_round_trips_without_losing_windows_paths() {
 }
 ```
 
-- [ ] **Step 2: Run the test and verify it fails before the type exists**
+- [x] **Step 2: Run the test and verify it fails before the type exists**
 
 Run: `cargo test -p comfyneko-core profile_round_trips_without_losing_windows_paths`
 
-- [ ] **Step 3: Implement the serializable types**
+- [x] **Step 3: Implement the serializable types**
 
 ```rust
 pub struct EnvironmentProfile {
@@ -64,11 +64,11 @@ pub struct EnvironmentProfile {
 }
 ```
 
-- [ ] **Step 4: Run the focused test and format the crate**
+- [x] **Step 4: Run the focused test and format the crate**
 
 Run: `cargo fmt --check && cargo test -p comfyneko-core profile_round_trips_without_losing_windows_paths`
 
-- [ ] **Step 5: Stop at a review checkpoint**
+- [x] **Step 5: Stop at a review checkpoint**
 
 Report created files and test result. Do not commit automatically.
 
