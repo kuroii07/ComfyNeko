@@ -18,6 +18,7 @@ ComfyNeko 是本地优先的 Windows 桌面软件：连接一套或多套 ComfyU
 - [界面信息架构](docs/04-界面信息架构.md)
 - [路线图与验收标准](docs/05-路线图与验收标准.md)
 - [开发路线与 GitHub 推送规范](docs/06-开发路线与GitHub推送规范.md)
+- [开发执行与体验基线](docs/07-开发执行与体验基线.md)
 - [开发日志](docs/DEVELOPMENT_LOG.md)
 - [环境绑定基础实施计划](docs/superpowers/plans/2026-09-03-environment-foundation.md)
 

@@ -10,6 +10,8 @@
 
 **Spec:** `docs/03-环境绑定与安全设计.md`
 
+**UI baseline:** Before the onboarding wizard is implemented, apply `docs/07-开发执行与体验基线.md`: token-based Light/Dark/Follow System themes, `zh-CN`/`en-US` runtime locale resources, persistent shell preferences, collapsible sidebar, tooltip contract, sticky page guidance, keyboard access, and a visual score of at least 85/100.
+
 ## Global Constraints
 
 - Windows 10/11 only for the first release; use `std::path::PathBuf` and never parse paths with string splitting.
@@ -47,7 +49,7 @@ fn profile_round_trips_without_losing_windows_paths() {
 
 - [ ] **Step 2: Run the test and verify it fails before the type exists**
 
-Run: `cargo test -p comfy-asset-hub-core profile_round_trips_without_losing_windows_paths`
+Run: `cargo test -p comfyneko-core profile_round_trips_without_losing_windows_paths`
 
 - [ ] **Step 3: Implement the serializable types**
 
@@ -64,7 +66,7 @@ pub struct EnvironmentProfile {
 
 - [ ] **Step 4: Run the focused test and format the crate**
 
-Run: `cargo fmt --check && cargo test -p comfy-asset-hub-core profile_round_trips_without_losing_windows_paths`
+Run: `cargo fmt --check && cargo test -p comfyneko-core profile_round_trips_without_losing_windows_paths`
 
 - [ ] **Step 5: Stop at a review checkpoint**
 
@@ -94,7 +96,7 @@ fn probe_marks_missing_python_as_blocking() {
 
 - [ ] **Step 2: Run the focused tests to confirm failure**
 
-Run: `cargo test -p comfy-asset-hub-core probe_marks_missing_python_as_blocking`
+Run: `cargo test -p comfyneko-core probe_marks_missing_python_as_blocking`
 
 - [ ] **Step 3: Implement normalized allow-listed path checks and root probes**
 
@@ -108,7 +110,7 @@ pub fn validate_allowed_root(path: &Path) -> Result<PathBuf, Diagnostic> {
 
 - [ ] **Step 4: Verify valid, missing, unreadable, and non-ComfyUI fixture cases**
 
-Run: `cargo test -p comfy-asset-hub-core environment_probe -- --nocapture`
+Run: `cargo test -p comfyneko-core environment_probe -- --nocapture`
 
 - [ ] **Step 5: Stop at a review checkpoint**
 
@@ -138,7 +140,7 @@ fn timed_out_python_probe_returns_python_timeout_diagnostic() {
 
 - [ ] **Step 2: Run the test to confirm failure**
 
-Run: `cargo test -p comfy-asset-hub-core timed_out_python_probe_returns_python_timeout_diagnostic`
+Run: `cargo test -p comfyneko-core timed_out_python_probe_returns_python_timeout_diagnostic`
 
 - [ ] **Step 3: Implement bounded commands and loopback-only HTTP probing**
 
@@ -149,7 +151,7 @@ let url = format!("http://127.0.0.1:{port}/system_stats");
 
 - [ ] **Step 4: Run focused tests and static checks**
 
-Run: `cargo fmt --check && cargo clippy -p comfy-asset-hub-core -- -D warnings && cargo test -p comfy-asset-hub-core`
+Run: `cargo fmt --check && cargo clippy -p comfyneko-core -- -D warnings && cargo test -p comfyneko-core`
 
 - [ ] **Step 5: Stop at a review checkpoint**
 
@@ -168,6 +170,8 @@ Confirm that unreachable API becomes a warning and no remote host is accepted. D
 **Interfaces:**
 - Consumes `ProbeResult` from Task 2/3 through Tauri commands.
 - Produces a persisted `EnvironmentProfile` only after blocking diagnostics equal zero.
+
+**Required UI foundation before the wizard:** create the shared theme tokens, locale dictionaries, preference state, collapsible navigation shell, icon tooltip primitive, and sticky page guidance. The wizard must reuse these primitives rather than introducing local colors or hard-coded copy.
 
 - [ ] **Step 1: Write the failing UI test for disabled confirmation**
 
@@ -191,7 +195,7 @@ const canSave = probe.diagnostics.every((item) => item.severity !== "blocking");
 
 - [ ] **Step 4: Run UI, Rust, and build verification**
 
-Run: `pnpm --dir apps/desktop test && pnpm --dir apps/desktop build && cargo test -p comfy-asset-hub-core`
+Run: `pnpm --dir apps/desktop test && pnpm --dir apps/desktop build && cargo test -p comfyneko-core`
 
 - [ ] **Step 5: Perform a manual Windows smoke test**
 
