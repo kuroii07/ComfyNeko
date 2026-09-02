@@ -1,17 +1,23 @@
-use std::{fs, path::PathBuf};
+use std::{fs, path::PathBuf, time::Duration};
 
 use crate::{
     domain::{
         diagnostic::{Diagnostic, Severity},
         environment::EnvironmentProfile,
     },
-    services::path_guard::validate_allowed_root,
+    services::{
+        api_probe::{probe_api, ApiProbe},
+        path_guard::validate_allowed_root,
+        python_probe::{probe_python, PythonProbe},
+    },
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProbeResult {
     pub normalized_comfy_root: Option<PathBuf>,
     pub diagnostics: Vec<Diagnostic>,
+    pub python: Option<PythonProbe>,
+    pub api: Option<ApiProbe>,
 }
 
 pub fn probe_environment(candidate: &EnvironmentProfile) -> ProbeResult {
@@ -23,7 +29,42 @@ pub fn probe_environment(candidate: &EnvironmentProfile) -> ProbeResult {
     ProbeResult {
         normalized_comfy_root,
         diagnostics,
+        python: None,
+        api: None,
     }
+}
+
+pub fn probe_environment_runtime(
+    candidate: &EnvironmentProfile,
+    python_timeout: Duration,
+    api_timeout: Duration,
+) -> ProbeResult {
+    let mut result = probe_environment(candidate);
+
+    let has_blocking_path_diagnostic = result
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.severity == Severity::Blocking);
+
+    if !has_blocking_path_diagnostic {
+        if let Some(python) = &candidate.python_executable {
+            match probe_python(python, python_timeout) {
+                Ok(probe) => result.python = Some(probe),
+                Err(diagnostic) => result.diagnostics.push(diagnostic),
+            }
+        }
+    }
+
+    if let Some(api) = &candidate.api {
+        if api.host != "127.0.0.1" || !has_blocking_path_diagnostic {
+            match probe_api(api, api_timeout) {
+                Ok(probe) => result.api = Some(probe),
+                Err(diagnostic) => result.diagnostics.push(diagnostic),
+            }
+        }
+    }
+
+    result
 }
 
 fn validate_comfy_root(
@@ -154,13 +195,13 @@ fn warning(code: &str, message: impl Into<String>) -> Diagnostic {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs, path::PathBuf};
+    use std::{fs, path::PathBuf, time::Duration};
 
     use tempfile::TempDir;
 
-    use crate::domain::environment::EnvironmentProfile;
+    use crate::domain::environment::{ApiBinding, EnvironmentProfile};
 
-    use super::probe_environment;
+    use super::{probe_environment, probe_environment_runtime};
 
     fn valid_profile(fixture: &TempDir) -> EnvironmentProfile {
         let comfy_root = fixture.path().join("ComfyUI");
@@ -263,5 +304,51 @@ mod tests {
             diagnostic.code == "ASSET_ROOT_NOT_DIRECTORY"
                 && diagnostic.severity == crate::domain::diagnostic::Severity::Blocking
         }));
+    }
+
+    #[test]
+    fn runtime_probe_blocks_a_remote_api_without_contacting_it() {
+        let fixture = TempDir::new().unwrap();
+        let mut profile = valid_profile(&fixture);
+        profile.api = Some(ApiBinding {
+            host: "192.168.1.20".to_owned(),
+            port: 8188,
+        });
+
+        let result = probe_environment_runtime(
+            &profile,
+            Duration::from_millis(20),
+            Duration::from_millis(20),
+        );
+
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "API_HOST_NOT_ALLOWED"
+                && diagnostic.severity == crate::domain::diagnostic::Severity::Blocking
+        }));
+    }
+
+    #[test]
+    fn runtime_probe_still_rejects_a_remote_api_when_python_is_not_configured() {
+        let fixture = TempDir::new().unwrap();
+        let comfy_root = fixture.path().join("ComfyUI");
+        fs::create_dir(&comfy_root).unwrap();
+        fs::write(comfy_root.join("main.py"), "# ComfyUI entry point").unwrap();
+
+        let mut profile = EnvironmentProfile::new("未配置 Python", comfy_root);
+        profile.api = Some(ApiBinding {
+            host: "192.168.1.20".to_owned(),
+            port: 8188,
+        });
+
+        let result = probe_environment_runtime(
+            &profile,
+            Duration::from_millis(20),
+            Duration::from_millis(20),
+        );
+
+        assert!(result
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "API_HOST_NOT_ALLOWED"));
     }
 }
