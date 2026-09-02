@@ -3,6 +3,7 @@ node_modules/
 dist/
 target/
 apps/**/target/
+.worktrees/
 
 # Local configuration and secrets
 .env
