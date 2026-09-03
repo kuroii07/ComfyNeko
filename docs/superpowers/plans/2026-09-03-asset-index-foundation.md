@@ -81,7 +81,7 @@ pub enum AssetUpsertOutcome {
 pub fn classify_asset(root_kind: AssetRootKind, path: &Path) -> Option<AssetKind>;
 ```
 
-- [ ] **Step 1: Write failing classification tests**
+- [x] **Step 1: Write failing classification tests**
 
 Add table-driven tests that use literal expected values:
 
@@ -114,7 +114,7 @@ fn rejects_extensions_that_do_not_match_the_root_role() {
 }
 ```
 
-- [ ] **Step 2: Run the focused tests and verify RED**
+- [x] **Step 2: Run the focused tests and verify RED**
 
 Run:
 
@@ -124,7 +124,7 @@ cargo test -p comfyneko-core asset_discovery::tests::classifies_supported_extens
 
 Expected: compilation fails because `domain::asset` and `classify_asset` do not exist.
 
-- [ ] **Step 3: Implement the minimal serializable domain types**
+- [x] **Step 3: Implement the minimal serializable domain types**
 
 Derive `Debug`, `Clone`, `Copy` where valid, `PartialEq`, `Eq`, `Serialize`, and `Deserialize`. Use `snake_case` serialization for `AssetKind` and `AssetRootKind`. Implement stable storage conversion methods:
 
@@ -142,7 +142,7 @@ impl AssetRootKind {
 
 Implement `classify_asset` with exact, case-insensitive extension allowlists from the design specification. Files without extensions and unsupported extensions return `None`.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run:
 
@@ -153,7 +153,7 @@ cargo test -p comfyneko-core asset_discovery::tests
 
 Expected: classification and root-role mismatch tests pass.
 
-- [ ] **Step 5: Commit the domain checkpoint**
+- [x] **Step 5: Commit the domain checkpoint**
 
 ```powershell
 git add apps/desktop/src-tauri/src/domain apps/desktop/src-tauri/src/services
