@@ -2,6 +2,17 @@
 
 本日志与 Git 提交同步维护。每条记录必须说明已验证与未验证事项，不以“已完成”替代测试证据。
 
+## 2026-09-03 — VisionHub 风格 UI 阶段二：环境工作区与视觉 QA
+
+- 状态：第一轮结构、视觉、动效和响应式改版完成；后续仍保留渐进式视觉优化空间。
+- 测试先行：工作区/状态轨、步骤完成态、请求锁定、CSS 状态属性与可访问保存状态测试先因目标结构缺失而失败；实现后前端 6 个测试文件、17 个测试通过。
+- 组件：新增 `EnvironmentWorkspace`、`EnvironmentStepRail`、`EnvironmentStatusRail`、`EnvironmentActionBar`、共享向导类型与测试夹具；状态轨展示档案完整度、Python、本机 API、只读说明和真实诊断，不新增虚构业务。
+- 交互：增加工作区/步骤进入、按钮反馈和检查/保存状态脉冲；`prefers-reduced-motion` 会关闭动画和位移。步骤完成态使用勾选图标与文本，待检查/可保存/阻塞使用图标、文案和颜色共同表达。
+- 响应式：覆盖 1366px、420px、320px、240px；首次 240px 截图发现内部横向滚动与英文标题孤字，已通过最窄断点单列状态卡、缩小标题和内容区横向裁切解决。
+- 视觉 QA：截图位于 `outputs/playwright/visionhub-refresh/`；浏览器控制台 0 error，根文档各目标宽度 `clientWidth === scrollWidth`，键盘聚焦侧栏按钮会显示 Tooltip。`design-qa.md` 得分 92/100，`final result: passed`。
+- 安全边界：Rust、Tauri IPC、SQLite、环境探测和保存行为未改变；浏览器交互只验证表单前进与保存按钮在预检前保持禁用。
+- 下一步：在真实 Tauri WebView2 完成保存/重启读回；继续优化窄侧栏、状态卡文案、Windows DPI 与高对比度体验。
+
 ## 2026-09-03 — VisionHub 风格 UI 阶段一：应用壳层与环境控制条
 
 - 状态：阶段一完成，环境工作区组件拆分与状态轨仍待实现。

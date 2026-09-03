@@ -328,7 +328,7 @@ export function EnvironmentActionBar(props: {
 }): JSX.Element;
 ```
 
-- [ ] **Step 1: Write failing workspace structure and step-state tests**
+- [x] **Step 1: Write failing workspace structure and step-state tests**
 
 Add to `EnvironmentWizard.test.tsx`:
 
@@ -359,7 +359,7 @@ it("marks the active and completed steps without relying only on color", () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run:
 
@@ -369,7 +369,7 @@ pnpm.cmd --dir apps/desktop test EnvironmentWizard.test.tsx
 
 Expected: FAIL because the test IDs and `data-state` step attributes do not exist.
 
-- [ ] **Step 3: Create shared wizard types and test fixtures**
+- [x] **Step 3: Create shared wizard types and test fixtures**
 
 Create `environmentWizardTypes.ts`:
 
@@ -425,7 +425,7 @@ Import these fixtures from every wizard test added in Tasks 2–4 so
 `clearProbe` remains a shared test value rather than an undeclared
 task-local constant.
 
-- [ ] **Step 4: Use the shared wizard UI types**
+- [x] **Step 4: Use the shared wizard UI types**
 
 Import the shared types into `EnvironmentWizard.tsx`:
 
@@ -435,7 +435,7 @@ import type { RequestState, WizardStep } from "./environmentWizardTypes";
 
 Keep profile state, probe state, request state, `runProbe`, and `saveEnvironment` in this file.
 
-- [ ] **Step 5: Implement `EnvironmentStepRail`**
+- [x] **Step 5: Implement `EnvironmentStepRail`**
 
 Create `EnvironmentStepRail.tsx`:
 
@@ -474,7 +474,7 @@ export function EnvironmentStepRail({
 }
 ```
 
-- [ ] **Step 6: Implement `EnvironmentWorkspace` and form-panel boundary**
+- [x] **Step 6: Implement `EnvironmentWorkspace` and form-panel boundary**
 
 Create `EnvironmentWorkspace.tsx`:
 
@@ -529,7 +529,7 @@ Refactor `EnvironmentWizard` to render:
 
 Add `id="environment-wizard-start"` and `tabIndex={-1}` to the form panel’s first focus target container.
 
-- [ ] **Step 7: Add exact status-rail locale keys**
+- [x] **Step 7: Add exact status-rail locale keys**
 
 Add to both dictionaries:
 
@@ -573,7 +573,7 @@ English values:
 "environment.status.blocked": "Blocking issues"
 ```
 
-- [ ] **Step 8: Implement `EnvironmentStatusRail`**
+- [x] **Step 8: Implement `EnvironmentStatusRail`**
 
 Create `EnvironmentStatusRail.tsx` with:
 
@@ -597,7 +597,7 @@ Render:
 - `<DiagnosticList locale={locale} probe={probe} />`;
 - `id="environment-diagnostics"`, `tabIndex={-1}`, and `data-testid="environment-status-rail"`.
 
-- [ ] **Step 9: Implement `EnvironmentActionBar`**
+- [x] **Step 9: Implement `EnvironmentActionBar`**
 
 Create `EnvironmentActionBar.tsx` and move all Back/Next/Probe/Save buttons out of `EnvironmentWizard`. Keep exact current button labels and behavior. Use:
 
@@ -633,7 +633,7 @@ Pass `canAdvance={step !== 1 || canContinueFromBasics}` from
 `EnvironmentWizard`, so Step 1 keeps its existing name/root validation while
 Steps 2 and 3 can advance unless a request is busy.
 
-- [ ] **Step 10: Run focused and full tests**
+- [x] **Step 10: Run focused and full tests**
 
 Run:
 
@@ -645,7 +645,7 @@ pnpm.cmd --dir apps/desktop build
 
 Expected: all tests PASS; no TypeScript errors.
 
-- [ ] **Step 11: Commit the component-structure checkpoint**
+- [x] **Step 11: Commit the component-structure checkpoint**
 
 ```powershell
 git add apps/desktop/src/features/environments apps/desktop/src/i18n/translate.ts
@@ -668,7 +668,7 @@ git commit -m "refactor(ui): split the environment workspace presentation"
 - Produces: stable `data-step`, `data-request-state`, and `data-motion` attributes for CSS-driven motion.
 - Produces: Tooltip content that remains available on mouse hover and keyboard focus.
 
-- [ ] **Step 1: Write failing loading and motion-state tests**
+- [x] **Step 1: Write failing loading and motion-state tests**
 
 Add to `EnvironmentWizard.test.tsx`:
 
@@ -717,7 +717,7 @@ it("exposes the current step and request state for reduced-motion-safe styling",
 });
 ```
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 Run:
 
@@ -727,7 +727,7 @@ pnpm.cmd --dir apps/desktop test EnvironmentWizard.test.tsx
 
 Expected: the loading behavior may pass, but `data-step` and `data-request-state` must FAIL before implementation.
 
-- [ ] **Step 3: Add stable state attributes**
+- [x] **Step 3: Add stable state attributes**
 
 Pass `step` and `requestState` into `EnvironmentWorkspace` and render:
 
@@ -743,7 +743,7 @@ Pass `step` and `requestState` into `EnvironmentWorkspace` and render:
 
 Add `key={step}` and `data-motion="step-enter"` to the current `.wizard-panel`.
 
-- [ ] **Step 4: Implement the exact motion rules**
+- [x] **Step 4: Implement the exact motion rules**
 
 Add to `index.css`:
 
@@ -807,7 +807,7 @@ transform: none !important;
 animation: none !important;
 ```
 
-- [ ] **Step 5: Keep Tooltip keyboard behavior intact**
+- [x] **Step 5: Keep Tooltip keyboard behavior intact**
 
 Do not change its public interface. Add one regression assertion to `Tooltip.test.tsx`:
 
@@ -817,7 +817,7 @@ expect(screen.getByRole("tooltip")).toBeVisible();
 
 after focusing the child button. If motion-related CSS hides it or clips it, fix `.tooltip` and `.tooltip__content` without introducing a new dependency.
 
-- [ ] **Step 6: Run frontend verification**
+- [x] **Step 6: Run frontend verification**
 
 Run:
 
@@ -828,7 +828,7 @@ pnpm.cmd --dir apps/desktop build
 
 Expected: 0 failing tests and successful Vite build.
 
-- [ ] **Step 7: Commit the interaction checkpoint**
+- [x] **Step 7: Commit the interaction checkpoint**
 
 ```powershell
 git add apps/desktop/src/features/environments apps/desktop/src/components/Tooltip.tsx apps/desktop/src/components/Tooltip.test.tsx apps/desktop/src/styles/index.css
@@ -851,7 +851,7 @@ git commit -m "feat(ui): add purposeful desktop motion and states"
 - Produces: responsive layouts for `>800`, `520–800`, `360–520`, `280–360`, and `<280` widths.
 - Produces: diagnostic and readiness states with semantic icons and text.
 
-- [ ] **Step 1: Add failing semantic state tests**
+- [x] **Step 1: Add failing semantic state tests**
 
 Add:
 
@@ -885,7 +885,7 @@ it("shows a non-color readiness label before and after validation", async () => 
 
 Add the locale key `environment.status.aria` with Chinese `环境保存状态` and English `Environment save status`.
 
-- [ ] **Step 2: Run focused test and verify RED**
+- [x] **Step 2: Run focused test and verify RED**
 
 Run:
 
@@ -895,7 +895,7 @@ pnpm.cmd --dir apps/desktop test EnvironmentWizard.test.tsx
 
 Expected: FAIL because the readiness pill lacks the accessible name or exact copy.
 
-- [ ] **Step 3: Implement semantic readiness and diagnostic states**
+- [x] **Step 3: Implement semantic readiness and diagnostic states**
 
 In `EnvironmentStatusRail`:
 
@@ -919,7 +919,7 @@ Use Lucide icons:
 
 In `DiagnosticList`, render `Info`, `TriangleAlert`, `CircleAlert`, or `CircleCheck` based on the semantic state; keep diagnostic code in a `<small>` element and message in the primary `<p>`.
 
-- [ ] **Step 4: Implement desktop and compact responsive rules**
+- [x] **Step 4: Implement desktop and compact responsive rules**
 
 Use these exact layout thresholds:
 
@@ -982,7 +982,7 @@ Use these exact layout thresholds:
 
 Every grid/flex child that contains paths or translated copy must have `min-width: 0`; every path value must use `overflow-wrap: anywhere`.
 
-- [ ] **Step 5: Run automated frontend checks**
+- [x] **Step 5: Run automated frontend checks**
 
 Run:
 
@@ -994,7 +994,7 @@ git diff --check
 
 Expected: all checks PASS.
 
-- [ ] **Step 6: Commit the responsive checkpoint**
+- [x] **Step 6: Commit the responsive checkpoint**
 
 ```powershell
 git add apps/desktop/src/features/environments apps/desktop/src/i18n/translate.ts apps/desktop/src/styles/index.css apps/desktop/src/styles/tokens.css
@@ -1020,7 +1020,7 @@ git commit -m "fix(ui): harden environment workspace responsiveness"
 - Produces: `design-qa.md` with `final result: passed`.
 - Produces: a visual matrix proving layout, theme, locale, collapsed state, responsive behavior, and console cleanliness.
 
-- [ ] **Step 1: Start the local preview**
+- [x] **Step 1: Start the local preview**
 
 Run:
 
@@ -1030,7 +1030,7 @@ pnpm.cmd --dir apps/desktop dev -- --host ::1 --port 5173 --strictPort
 
 Keep the process running for the following Playwright checks.
 
-- [ ] **Step 2: Capture the reference and target states at matching desktop size**
+- [x] **Step 2: Capture the reference and target states at matching desktop size**
 
 Use Playwright CLI to open `http://[::1]:5173`, resize to `1366 900`, and capture:
 
@@ -1041,7 +1041,7 @@ outputs/playwright/visionhub-refresh/dark-en-collapsed-1366.png
 
 Inspect each screenshot together with the user-provided VisionHub reference. Do not require identical business content; compare the shell proportions, hierarchy, panel rhythm, density, button style, and overall desktop product quality.
 
-- [ ] **Step 3: Capture compact states and prove no overflow**
+- [x] **Step 3: Capture compact states and prove no overflow**
 
 Capture:
 
@@ -1062,7 +1062,7 @@ At each width evaluate:
 
 Expected: `clientWidth === scrollWidth`.
 
-- [ ] **Step 4: Exercise primary interactive states**
+- [x] **Step 4: Exercise primary interactive states**
 
 Using fresh Playwright snapshots between actions:
 
@@ -1076,7 +1076,7 @@ Using fresh Playwright snapshots between actions:
 
 Expected: 0 console errors, stable panel size between steps, and no inaccessible icon-only controls.
 
-- [ ] **Step 5: Write the first `design-qa.md`**
+- [x] **Step 5: Write the first `design-qa.md`**
 
 Use this exact structure:
 
@@ -1141,7 +1141,7 @@ After the first screenshot review, replace every initial gate statement and
 zero score with observed evidence. Use `None.` only for a severity level that
 was explicitly checked and had no findings.
 
-- [ ] **Step 6: Fix all P0/P1/P2 findings**
+- [x] **Step 6: Fix all P0/P1/P2 findings**
 
 For each finding:
 
@@ -1153,7 +1153,7 @@ For each finding:
 
 Do not loop on P3 polish. Leave P3 items in the follow-up section.
 
-- [ ] **Step 7: Require the QA gate**
+- [x] **Step 7: Require the QA gate**
 
 The task may proceed only when:
 
@@ -1163,7 +1163,7 @@ final result: passed
 
 and score is at least `85/100`.
 
-- [ ] **Step 8: Update the development log**
+- [x] **Step 8: Update the development log**
 
 Add a dated entry to `docs/DEVELOPMENT_LOG.md` containing:
 
@@ -1175,7 +1175,7 @@ Add a dated entry to `docs/DEVELOPMENT_LOG.md` containing:
 - remaining P3 polish;
 - explicit statement that environment validation and storage behavior were unchanged.
 
-- [ ] **Step 9: Commit the QA checkpoint**
+- [x] **Step 9: Commit the QA checkpoint**
 
 ```powershell
 git add design-qa.md docs/DEVELOPMENT_LOG.md apps/desktop/src
