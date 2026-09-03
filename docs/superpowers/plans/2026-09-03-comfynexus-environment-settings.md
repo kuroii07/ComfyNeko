@@ -159,29 +159,29 @@ Update README, development log, and roadmap; run `git diff --check`; commit with
 - `ModelPathSettings` receives `roots: EnvironmentRoots`, `onRootChange(root: RootKey, value: string): void`, and a controlled `ModelPathDraft` from `EnvironmentSettingsDraft`.
 - Both panels render their section explanation in the left column and controlled inputs in the right configuration panel.
 
-- [ ] **Step 1: Write failing behavior-preservation tests**
+- [x] **Step 1: Write failing behavior-preservation tests**
 
 Add tests asserting that the general panel calls the root chooser from `选择路径 ComfyUI 根目录`, renders `等待环境检查` without a probe, and that the model panel preserves a manually entered `模型目录` after a later automatic discovery run. Add a test that selecting `Checkpoints` category updates only the controlled draft object and does not call `EnvironmentApi.saveEnvironment`.
 
-- [ ] **Step 2: Run these panel tests and verify RED**
+- [x] **Step 2: Run these panel tests and verify RED**
 
 Run: `pnpm.cmd --dir apps/desktop test GeneralEnvironmentSettings.test.tsx ModelPathSettings.test.tsx`
 
 Expected: FAIL because the panels do not yet render or receive the callbacks.
 
-- [ ] **Step 3: Move current core-path controls into the general panel**
+- [x] **Step 3: Move current core-path controls into the general panel**
 
 Move environment name, ComfyUI root, Python, API port, discovery feedback, probe button, and verified diagnostics into `GeneralEnvironmentSettings`. Reuse the current controlled input handlers and native chooser/open action labels exactly so existing tests continue to identify them. Render runtime package rows only from `probe` data; show the pending translation if `probe === null`.
 
-- [ ] **Step 4: Move real roots and add controlled category mapping into the model panel**
+- [x] **Step 4: Move real roots and add controlled category mapping into the model panel**
 
 Move `models`, `input`, `output`, `workflows`, and `custom_nodes` controls into `ModelPathSettings`. Add category selectors and path inputs for `checkpoints`, `loras`, `vae`, `textEncoders`, `controlNet`, `upscalers`, `unet`, and `clipVision`; map these only to `ModelPathDraft`, never to a file operation or environment save.
 
-- [ ] **Step 5: Implement field-row visual states**
+- [x] **Step 5: Implement field-row visual states**
 
 Style `.environment-settings-section__intro`, `.environment-settings-panel`, `.settings-field-row`, `.settings-field-row--readonly`, and `.settings-runtime-fact`. The status icon and text must distinguish pending, success, warning, error, and read-only states. Long Windows paths must use `min-width: 0`, overflow wrapping, and an accessible full-value input.
 
-- [ ] **Step 6: Run behavior regression tests green**
+- [x] **Step 6: Run behavior regression tests green**
 
 Run: `pnpm.cmd --dir apps/desktop test GeneralEnvironmentSettings.test.tsx ModelPathSettings.test.tsx EnvironmentWizard.test.tsx`
 
@@ -189,7 +189,7 @@ Run: `pnpm.cmd --dir apps/desktop build`
 
 Expected: PASS; no existing root-selection, path-opening, discovery, probe, or save behavior regresses.
 
-- [ ] **Step 7: Record, commit, and push the general/model milestone**
+- [x] **Step 7: Record, commit, and push the general/model milestone**
 
 Update README, development log, and roadmap; run `git diff --check`; commit with `feat(env): rebuild general and model path settings`; push the verified branch.
 

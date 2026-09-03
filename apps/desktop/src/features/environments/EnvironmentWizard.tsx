@@ -20,6 +20,12 @@ import {
 } from "./environmentApi";
 import { EnvironmentSettingsPage } from "./EnvironmentSettingsPage";
 import type { EnvironmentSettingsTab } from "./EnvironmentSettingsTabs";
+import { GeneralEnvironmentSettings } from "./GeneralEnvironmentSettings";
+import { ModelPathSettings } from "./ModelPathSettings";
+import {
+  createEnvironmentSettingsDraft,
+  type ModelPathCategory
+} from "./environmentSettingsDraft";
 import type { RequestState, WizardStep } from "./environmentWizardTypes";
 import {
   tauriPathActionApi,
@@ -71,6 +77,9 @@ export function EnvironmentWizard({
   const [probe, setProbe] = useState<ProbeResult | null>(initialProbe ?? null);
   const [activeSettingsTab, setActiveSettingsTab] =
     useState<EnvironmentSettingsTab>("general");
+  const [settingsDraft, setSettingsDraft] = useState(
+    createEnvironmentSettingsDraft
+  );
   const [requestState, setRequestState] = useState<RequestState>("idle");
   const [requestError, setRequestError] = useState("");
   const [discoveryState, setDiscoveryState] = useState<DiscoveryState>({
@@ -275,11 +284,7 @@ export function EnvironmentWizard({
       profile={profile}
     >
       {activeSettingsTab === "general" ? (
-        <div
-          aria-labelledby="environment-settings-tab-general"
-          id="environment-settings-panel-general"
-          role="tabpanel"
-        >
+        <GeneralEnvironmentSettings locale={locale}>
         <SettingsBlock title={translate(locale, "environment.section.basics")}>
         <SettingsField
           description={translate(locale, "environment.nameHelp")}
@@ -429,7 +434,7 @@ export function EnvironmentWizard({
               )}
             </button>
           </div>
-        </div>
+          </div>
 
         <DiagnosticResults
           diagnostics={probe?.diagnostics ?? []}
@@ -438,7 +443,7 @@ export function EnvironmentWizard({
           requestState={requestState}
         />
       </SettingsBlock>
-        </div>
+        </GeneralEnvironmentSettings>
       ) : null}
 
       {activeSettingsTab === "acceleration" ? (
@@ -446,15 +451,19 @@ export function EnvironmentWizard({
       ) : null}
 
       {activeSettingsTab === "model-paths" ? (
-        <div
-          aria-labelledby="environment-settings-tab-model-paths"
-          id="environment-settings-panel-model-paths"
-          role="tabpanel"
+        <ModelPathSettings
+          categories={settingsDraft.modelPaths.categories}
+          locale={locale}
+          onCategoryChange={(category: ModelPathCategory, path: string) => {
+            setSettingsDraft((current) => ({
+              ...current,
+              modelPaths: {
+                ...current.modelPaths,
+                categories: { ...current.modelPaths.categories, [category]: path }
+              }
+            }));
+          }}
         >
-      <EnvironmentTabIntro
-        description={translate(locale, "environment.modelPaths.description")}
-        title={translate(locale, "environment.modelPaths.title")}
-      />
       <SettingsBlock title={translate(locale, "environment.section.assets")}>
         {rootFields.map((rootKey) => (
           <SettingsField
@@ -490,7 +499,7 @@ export function EnvironmentWizard({
           </SettingsField>
         ))}
       </SettingsBlock>
-        </div>
+        </ModelPathSettings>
       ) : null}
 
       {activeSettingsTab === "variables" ? (

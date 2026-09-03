@@ -2,6 +2,17 @@
 
 本日志与 Git 提交同步维护。每条记录必须说明已验证与未验证事项，不以“已完成”替代测试证据。
 
+## 2026-09-03 — M1.5.3 通用与模型路径双栏配置面板
+
+- 状态：完成；下一步实现加速预设和可编辑的行号变量草案。
+- 组件：新增 `GeneralEnvironmentSettings`、`ModelPathSettings`。两者按参考信息架构独立负责说明列与配置面板；`EnvironmentWizard` 保留档案、自动发现、原生选取、路径打开、检查、保存和错误状态的所有既有业务职责。
+- 通用设置：环境名称、ComfyUI 根目录、Python、API、诊断与保存仍使用原有受控输入和 Tauri API，不重写已验证路径逻辑。模型路径继续保留模型/输入/输出/工作流/自定义节点五类真实索引目录。
+- 新草案：增加 Checkpoints、LoRAs、VAE、Text Encoders、ControlNet、Upscalers、UNet、CLIP Vision 映射输入；它们只更新 React 内存草案，不调用 `saveEnvironment`、Tauri、文件系统或 `extra_model_paths.yaml`。
+- 测试先行：先建立通用面板布局与 Checkpoint 草案回调测试，确认两个新组件缺失后失败；实现后将既有模型页标题断言更新为新的产品结构，同时保留路径选择、发现、手动覆盖、检查和保存的 14 项向导回归测试。
+- 验证：`pnpm.cmd --dir apps/desktop test GeneralEnvironmentSettings.test.tsx ModelPathSettings.test.tsx EnvironmentWizard.test.tsx EnvironmentSettingsPage.test.tsx environmentSettingsDraft.test.ts` 通过（5 文件、21 测试）；`pnpm.cmd --dir apps/desktop build` 通过。未运行真实 Tauri/Playwright 视觉矩阵，统一留给 M1.5.4 完整验收。
+- 安全边界：未改动 Rust、Tauri command、SQLite、ComfyUI、Python、模型/输入/输出目录或启动配置；新模型类别字段不具备任何外部写入路径。
+- 下一步：M1.5.4 以失败测试实现加速预设草案和带行号、格式错误提示的环境变量编辑器，再做完整桌面视觉与回归验收。
+
 ## 2026-09-03 — M1.5.2 环境控制台壳层与无障碍页签
 
 - 状态：完成；下一步进入通用设置与模型路径的双栏面板重构。

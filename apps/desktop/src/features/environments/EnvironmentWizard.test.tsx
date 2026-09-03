@@ -22,7 +22,7 @@ describe("EnvironmentWizard", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "模型路径" }));
     expect(screen.getByRole("tabpanel", { name: "模型路径" })).toBeInTheDocument();
-    expect(screen.getByText("模型路径与工作目录")).toBeInTheDocument();
+    expect(screen.getByText("模型配置集与目录映射")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "模型目录" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "环境变量" }));
