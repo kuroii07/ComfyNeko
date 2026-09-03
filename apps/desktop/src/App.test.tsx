@@ -25,4 +25,16 @@ describe("App", () => {
     expect(screen.getByText("应用信息")).toBeInTheDocument();
     expect(screen.getByText("本地优先")).toBeInTheDocument();
   });
+
+  it("shows an honest planned state for unfinished feature pages", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "模型管理" }));
+
+    expect(screen.getByRole("heading", { name: "模型管理" })).toBeInTheDocument();
+    expect(screen.getByText("功能规划中")).toBeInTheDocument();
+    expect(
+      screen.getByText("当前仅建立导航入口，具体功能将在后续阶段开发。")
+    ).toBeInTheDocument();
+  });
 });

@@ -14,8 +14,8 @@
   --shadow-panel: 0 1rem 2.75rem rgb(56 68 96 / 0.09);
   --shadow-hover: 0 1.1rem 3rem rgb(56 68 96 / 0.13);
   --font-ui: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
-  --sidebar-expanded: 14.25rem;
-  --sidebar-collapsed: 5.25rem;
+  --sidebar-expanded: 12.5rem;
+  --sidebar-collapsed: 4.5rem;
   --motion-fast: 160ms;
   --motion-base: 220ms;
   --motion-slow: 280ms;

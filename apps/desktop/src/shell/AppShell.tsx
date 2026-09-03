@@ -1,22 +1,65 @@
 import {
+  Blocks,
+  BrainCircuit,
   Database,
+  House,
+  Images,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
-  Sun
+  Sun,
+  TextQuote,
+  Workflow,
+  type LucideIcon
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { Tooltip } from "../components/Tooltip";
-import { translate, type Locale } from "../i18n/translate";
+import {
+  translate,
+  type Locale,
+  type MessageKey
+} from "../i18n/translate";
 import {
   type AppPreferences,
   readPreferences,
   writePreferences
 } from "../preferences/preferences";
 
-export type AppPage = "environments" | "settings";
+export type AppPage =
+  | "home"
+  | "models"
+  | "assets"
+  | "workflows"
+  | "prompts"
+  | "nodes"
+  | "environments"
+  | "settings";
+
+type NavigationItem = {
+  icon: LucideIcon;
+  labelKey: MessageKey;
+  page: AppPage;
+};
+
+const primaryNavigationItems: NavigationItem[] = [
+  { icon: House, labelKey: "navigation.home", page: "home" },
+  { icon: BrainCircuit, labelKey: "navigation.models", page: "models" },
+  { icon: Images, labelKey: "navigation.assets", page: "assets" },
+  { icon: Workflow, labelKey: "navigation.workflows", page: "workflows" },
+  { icon: TextQuote, labelKey: "navigation.prompts", page: "prompts" },
+  { icon: Blocks, labelKey: "navigation.nodes", page: "nodes" }
+];
+
+const utilityNavigationItems: NavigationItem[] = [
+  {
+    icon: Database,
+    labelKey: "navigation.environment",
+    page: "environments"
+  },
+  { icon: Settings, labelKey: "navigation.settings", page: "settings" }
+];
 
 export type AppShellRenderContext = {
   locale: Locale;
@@ -80,64 +123,82 @@ export function AppShell({ children, initialPreferences }: AppShellProps) {
 
         <nav
           aria-label={translate(locale, "navigation.primary")}
+          className="app-shell__primary-nav"
           data-collapsed={collapsed}
         >
-          <SidebarAction
-            active={page === "environments"}
-            collapsed={collapsed}
-            icon={<Database aria-hidden="true" />}
-            label={translate(locale, "navigation.environment")}
-            onClick={() => setPage("environments")}
-          />
-          <SidebarAction
-            active={page === "settings"}
-            collapsed={collapsed}
-            icon={<Settings aria-hidden="true" />}
-            label={translate(locale, "navigation.settings")}
-            onClick={() => setPage("settings")}
-          />
+          {primaryNavigationItems.map((item) => (
+            <SidebarAction
+              active={page === item.page}
+              collapsed={collapsed}
+              icon={item.icon}
+              key={item.page}
+              label={translate(locale, item.labelKey)}
+              onClick={() => setPage(item.page)}
+            />
+          ))}
         </nav>
 
         <div className="app-shell__footer" data-testid="sidebar-footer">
-          <Tooltip label={themeLabel}>
-            <button
-              aria-label={themeLabel}
-              className="app-shell__footer-action"
-              type="button"
-              onClick={() =>
-                updatePreferences({
-                  theme: resolvedTheme === "light" ? "dark" : "light"
-                })
-              }
-            >
-              {resolvedTheme === "light" ? (
-                <Sun aria-hidden="true" />
-              ) : (
-                <Moon aria-hidden="true" />
-              )}
-              {collapsed ? null : (
-                <span>{translate(locale, `shell.theme.${resolvedTheme}`)}</span>
-              )}
-            </button>
-          </Tooltip>
+          <nav
+            aria-label={translate(locale, "navigation.utility")}
+            className="app-shell__utility-nav"
+            data-collapsed={collapsed}
+          >
+            {utilityNavigationItems.map((item) => (
+              <SidebarAction
+                active={page === item.page}
+                collapsed={collapsed}
+                icon={item.icon}
+                key={item.page}
+                label={translate(locale, item.labelKey)}
+                onClick={() => setPage(item.page)}
+              />
+            ))}
+          </nav>
 
-          <Tooltip label={collapseLabel}>
-            <button
-              aria-label={collapseLabel}
-              className="app-shell__footer-action"
-              type="button"
-              onClick={() =>
-                updatePreferences({ sidebarCollapsed: !preferences.sidebarCollapsed })
-              }
-            >
-              {collapsed ? (
-                <PanelLeftOpen aria-hidden="true" />
-              ) : (
-                <PanelLeftClose aria-hidden="true" />
-              )}
-              {collapsed ? null : <span>{collapseLabel}</span>}
-            </button>
-          </Tooltip>
+          <div className="app-shell__footer-controls">
+            <Tooltip label={themeLabel}>
+              <button
+                aria-label={themeLabel}
+                className="app-shell__footer-action"
+                type="button"
+                onClick={() =>
+                  updatePreferences({
+                    theme: resolvedTheme === "light" ? "dark" : "light"
+                  })
+                }
+              >
+                {resolvedTheme === "light" ? (
+                  <Sun aria-hidden="true" />
+                ) : (
+                  <Moon aria-hidden="true" />
+                )}
+                {collapsed ? null : (
+                  <span>{translate(locale, `shell.theme.${resolvedTheme}`)}</span>
+                )}
+              </button>
+            </Tooltip>
+
+            <Tooltip label={collapseLabel}>
+              <button
+                aria-label={collapseLabel}
+                className="app-shell__footer-action app-shell__collapse-action"
+                type="button"
+                onClick={() =>
+                  updatePreferences({
+                    sidebarCollapsed: !preferences.sidebarCollapsed
+                  })
+                }
+              >
+                {collapsed ? (
+                  <PanelLeftOpen aria-hidden="true" />
+                ) : (
+                  <PanelLeftClose aria-hidden="true" />
+                )}
+                {collapsed ? null : <span>{collapseLabel}</span>}
+              </button>
+            </Tooltip>
+          </div>
         </div>
       </aside>
       <main className="app-shell__content">{content}</main>
@@ -154,10 +215,12 @@ function SidebarAction({
 }: {
   active: boolean;
   collapsed: boolean;
-  icon: ReactNode;
+  icon: LucideIcon;
   label: string;
   onClick(): void;
 }) {
+  const Icon = icon;
+
   return (
     <Tooltip label={label}>
       <button
@@ -167,7 +230,7 @@ function SidebarAction({
         type="button"
         onClick={onClick}
       >
-        {icon}
+        <Icon aria-hidden="true" />
         {collapsed ? null : <span>{label}</span>}
       </button>
     </Tooltip>
