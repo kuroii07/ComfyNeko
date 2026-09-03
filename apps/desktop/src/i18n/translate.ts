@@ -14,6 +14,12 @@ type MessageKey =
   | "environment.apiHelp"
   | "environment.apiPort"
   | "environment.comfyRoot"
+  | "environment.library.count"
+  | "environment.library.empty"
+  | "environment.library.error"
+  | "environment.library.loading"
+  | "environment.library.retry"
+  | "environment.library.title"
   | "environment.diagnostics.clear"
   | "environment.diagnostics.pending"
   | "environment.diagnostics.title"
@@ -81,6 +87,12 @@ const messages: Record<Locale, Partial<Record<MessageKey, string>>> = {
     "environment.apiHelp": "API 为可选项，仅允许连接本机 127.0.0.1。",
     "environment.apiPort": "ComfyUI API 端口（可选）",
     "environment.comfyRoot": "ComfyUI 根目录",
+    "environment.library.count": "个环境",
+    "environment.library.empty": "暂无已保存环境",
+    "environment.library.error": "环境档案加载失败",
+    "environment.library.loading": "正在加载环境档案…",
+    "environment.library.retry": "重试",
+    "environment.library.title": "已保存环境",
     "environment.diagnostics.clear": "未发现阻塞问题，可以保存此环境。",
     "environment.diagnostics.pending": "尚未检查。检查过程只读取路径和运行时信息。",
     "environment.diagnostics.title": "环境诊断",
@@ -146,6 +158,12 @@ const messages: Record<Locale, Partial<Record<MessageKey, string>>> = {
     "environment.apiHelp": "The API is optional and limited to local host 127.0.0.1.",
     "environment.apiPort": "ComfyUI API port (optional)",
     "environment.comfyRoot": "ComfyUI root",
+    "environment.library.count": "environments",
+    "environment.library.empty": "No saved environments",
+    "environment.library.error": "Failed to load environments",
+    "environment.library.loading": "Loading environment profiles…",
+    "environment.library.retry": "Retry",
+    "environment.library.title": "Saved environments",
     "environment.diagnostics.clear": "No blocking issues found. This profile can be saved.",
     "environment.diagnostics.pending": "Not checked yet. Validation only reads paths and runtime details.",
     "environment.diagnostics.title": "Environment diagnostics",

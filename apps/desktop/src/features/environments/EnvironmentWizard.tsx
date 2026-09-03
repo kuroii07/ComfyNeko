@@ -22,6 +22,7 @@ type EnvironmentWizardProps = {
   initialProfile?: EnvironmentProfile;
   initialStep?: WizardStep;
   locale?: Locale;
+  onSaved?(profile: EnvironmentProfile): void | Promise<void>;
 };
 
 const rootFields: RootKey[] = [
@@ -37,7 +38,8 @@ export function EnvironmentWizard({
   initialProbe,
   initialProfile,
   initialStep = 1,
-  locale = "zh-CN"
+  locale = "zh-CN",
+  onSaved
 }: EnvironmentWizardProps) {
   const [step, setStep] = useState<WizardStep>(initialStep);
   const [profile, setProfile] = useState<EnvironmentProfile>(
@@ -73,6 +75,7 @@ export function EnvironmentWizard({
       const result = await api.saveEnvironment(profile);
       setProbe(result);
       setRequestState("saved");
+      await onSaved?.(profile);
     } catch (error) {
       setRequestError(String(error));
       setRequestState("error");

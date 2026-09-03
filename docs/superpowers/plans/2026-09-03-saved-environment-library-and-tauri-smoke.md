@@ -51,7 +51,7 @@ type EnvironmentWizardProps = {
 };
 ```
 
-- [ ] **Step 1: Write failing loading, list, selection, empty, and retry tests**
+- [x] **Step 1: Write failing loading, list, selection, empty, and retry tests**
 
 Create `EnvironmentManager.test.tsx`:
 
@@ -105,7 +105,7 @@ it("recovers from a list failure through the retry action", async () => {
 
 The test helper must return a complete `EnvironmentApi`; default probe/save functions return `clearProbe`.
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run:
 
@@ -115,7 +115,7 @@ pnpm.cmd --dir apps/desktop test EnvironmentManager.test.tsx
 
 Expected: FAIL because `EnvironmentManager` does not exist.
 
-- [ ] **Step 3: Implement list loading and selection**
+- [x] **Step 3: Implement list loading and selection**
 
 `EnvironmentManager` must:
 
@@ -128,7 +128,7 @@ Expected: FAIL because `EnvironmentManager` does not exist.
 7. key the wizard by the selected profile ID so selection replaces its editable state;
 8. render an empty wizard when no profile exists.
 
-- [ ] **Step 4: Refresh the list after save**
+- [x] **Step 4: Refresh the list after save**
 
 Add `onSaved` to `EnvironmentWizard`. After `api.saveEnvironment(profile)` succeeds:
 
@@ -140,7 +140,7 @@ await onSaved?.(profile);
 
 In `EnvironmentManager`, pass a callback that reloads the profiles and preserves the saved profile ID as selected.
 
-- [ ] **Step 5: Replace the direct wizard in `App`**
+- [x] **Step 5: Replace the direct wizard in `App`**
 
 Use:
 
@@ -150,7 +150,7 @@ Use:
 
 Do not change the command bar targets; the manager must still contain `environment-wizard-start` and `environment-diagnostics`.
 
-- [ ] **Step 6: Add locale keys and compact library styles**
+- [x] **Step 6: Add locale keys and compact library styles**
 
 Add exact keys:
 
@@ -187,7 +187,7 @@ English:
 
 Style the library as a solid panel with horizontally wrapping profile buttons at desktop widths and a one-column list below 520px. Long paths must use `overflow-wrap: anywhere`.
 
-- [ ] **Step 7: Run frontend verification**
+- [x] **Step 7: Run frontend verification**
 
 Run:
 
@@ -199,7 +199,7 @@ git diff --check
 
 Expected: all frontend tests pass, build exits `0`, and no whitespace errors exist.
 
-- [ ] **Step 8: Commit the saved-library checkpoint**
+- [x] **Step 8: Commit the saved-library checkpoint**
 
 ```powershell
 git add apps/desktop/src README.md docs/DEVELOPMENT_LOG.md docs/superpowers/plans/2026-09-03-saved-environment-library-and-tauri-smoke.md

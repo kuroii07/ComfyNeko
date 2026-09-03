@@ -1,4 +1,4 @@
-import { EnvironmentWizard } from "./features/environments/EnvironmentWizard";
+import { EnvironmentManager } from "./features/environments/EnvironmentManager";
 import { translate } from "./i18n/translate";
 import { AppShell } from "./shell/AppShell";
 
@@ -38,7 +38,7 @@ export function App() {
               </button>
             </div>
           </header>
-          <EnvironmentWizard locale={locale} />
+          <EnvironmentManager locale={locale} />
         </section>
       )}
     </AppShell>
