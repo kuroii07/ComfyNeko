@@ -8,7 +8,8 @@ export type AppPreferences = {
   theme: ThemePreference;
 };
 
-type PreferenceStorage = Pick<Storage, "getItem">;
+type PreferenceReader = Pick<Storage, "getItem">;
+type PreferenceWriter = Pick<Storage, "setItem">;
 
 const storageKey = "comfyneko.preferences.v1";
 
@@ -18,7 +19,7 @@ const defaults: AppPreferences = {
   theme: "system"
 };
 
-export function readPreferences(storage: PreferenceStorage): AppPreferences {
+export function readPreferences(storage: PreferenceReader): AppPreferences {
   const raw = storage.getItem(storageKey);
 
   if (!raw) {
@@ -30,6 +31,10 @@ export function readPreferences(storage: PreferenceStorage): AppPreferences {
   } catch {
     return defaults;
   }
+}
+
+export function writePreferences(storage: PreferenceWriter, preferences: AppPreferences): void {
+  storage.setItem(storageKey, JSON.stringify(preferences));
 }
 
 function sanitizePreferences(value: unknown): AppPreferences {

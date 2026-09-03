@@ -23,11 +23,10 @@ export function EnvironmentWizard({
   const saveBlockedMessage = translate(locale, "environment.saveBlocked");
 
   return (
-    <section aria-labelledby="environment-wizard-title">
-      <h1 id="environment-wizard-title">
-        {translate(locale, "environment.title")}
-      </h1>
-      <p>{translate(locale, "environment.description")}</p>
+    <section
+      aria-label={translate(locale, "environment.title")}
+      className="environment-wizard"
+    >
       <button
         aria-describedby={hasBlockingDiagnostic ? "environment-save-status" : undefined}
         disabled={hasBlockingDiagnostic}

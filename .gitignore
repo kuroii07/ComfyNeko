@@ -4,6 +4,7 @@ dist/
 target/
 apps/**/target/
 .worktrees/
+.playwright-cli/
 
 # Local configuration and secrets
 .env
