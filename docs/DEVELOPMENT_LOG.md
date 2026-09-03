@@ -2,6 +2,15 @@
 
 本日志与 Git 提交同步维护。每条记录必须说明已验证与未验证事项，不以“已完成”替代测试证据。
 
+## 2026-09-03 — M1.4 阶段三：SQLite 环境档案仓储
+
+- 状态：阶段性完成；M1.4 仍在开发中，路线项未划线。
+- 改动：新增 SQLx + SQLite 环境档案迁移与仓储。档案只保存环境名称、路径、可选本机 API、目录映射和校验时间；未复制、扫描或改动任何真实 ComfyUI、Python、模型、输入或输出文件。`save_if_valid` 会在任一阻塞诊断存在时拒绝写入，避免把无效环境带入后续索引流程。
+- 测试先行：先新增“阻塞诊断不得持久化”和“有效 Windows 路径档案可完整读回”两条 integration test；首次因 `repositories` 模块尚不存在而预期失败。随后完成最小仓储、迁移和错误映射实现，测试转绿。
+- 验证：已执行 `cargo fmt --check`、`cargo clippy -p comfyneko-core -- -D warnings`、`cargo test -p comfyneko-core`；12 个既有单测与 2 个仓储 integration test 均通过，0 个失败、0 个 Clippy 警告。提交前还会复跑并执行 `git diff --check`。
+- 未验证：尚未建立 Tauri command、实际 app-data 数据库定位、正式四步向导与真实 Windows 绑定 smoke test；SQLite 目前只在受测内存数据库中运行。M1.4 不因此标记为完成。
+- 下一步：以最小受限 Tauri command 暴露档案读取/保存，再让前端向导处理加载、成功、错误和空状态。
+
 ## 2026-09-03 — M1.4 阶段二：Token 化应用外壳与视觉复查
 
 - 状态：阶段性完成；M1.4 与 UI 基线都未标为最终完成。
