@@ -22,6 +22,7 @@ ComfyNeko 是本地优先的 Windows 桌面软件：连接一套或多套 ComfyU
 - [开发日志](docs/DEVELOPMENT_LOG.md)
 - [环境绑定基础实施计划](docs/superpowers/plans/2026-09-03-environment-foundation.md)
 - [VisionHub 启发式桌面 UI 改版计划](docs/superpowers/plans/2026-09-03-visionhub-inspired-ui-refresh.md)
+- [已保存环境列表与 Tauri 持久化验收计划](docs/superpowers/plans/2026-09-03-saved-environment-library-and-tauri-smoke.md)
 
 ## 项目目录
 
