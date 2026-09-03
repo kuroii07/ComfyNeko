@@ -7,7 +7,7 @@ ComfyNeko 是本地优先的 Windows 桌面软件：连接一套或多套 ComfyU
 ## 当前阶段
 
 - 阶段：M1 环境绑定开发中；~~M1.1 Rust 工作区与环境领域类型~~、~~M1.2 只读路径预检与诊断~~、~~M1.3 有超时上限的 Python 与仅本机 API 探测~~ 已完成。
-- 当前目标：完成环境绑定向导的真实 Tauri 窗口保存/重启读回验收，并补齐已保存环境列表；在此之前不允许任何扫描或外部文件写入操作。
+- 当前目标：按已确认的 VisionHub 启发式视觉规格重构环境绑定工作区，同时完成真实 Tauri 窗口保存/重启读回验收；在此之前不允许任何扫描或外部文件写入操作。
 - 默认原则：只读、可预览、可撤销；不修改已绑定 ComfyUI 的任何配置，除非用户明确确认。
 
 ## 文档导航
@@ -21,6 +21,7 @@ ComfyNeko 是本地优先的 Windows 桌面软件：连接一套或多套 ComfyU
 - [开发执行与体验基线](docs/07-开发执行与体验基线.md)
 - [开发日志](docs/DEVELOPMENT_LOG.md)
 - [环境绑定基础实施计划](docs/superpowers/plans/2026-09-03-environment-foundation.md)
+- [VisionHub 启发式桌面 UI 改版计划](docs/superpowers/plans/2026-09-03-visionhub-inspired-ui-refresh.md)
 
 ## 项目目录
 

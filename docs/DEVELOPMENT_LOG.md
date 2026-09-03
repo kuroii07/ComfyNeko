@@ -4,11 +4,12 @@
 
 ## 2026-09-03 — VisionHub 风格 UI 第一轮改版设计
 
-- 状态：设计方向已由用户确认，等待书面规格复核后进入实现计划。
+- 状态：设计方向与书面规格已由用户确认，实施计划已建立。
 - 目标：参考 Kuroii VisionHub 的固定侧栏、页面控制条、分层卡片、状态胶囊、信息密度与克制动效，重构 ComfyNeko 当前环境绑定界面。
 - 设计边界：保留 ComfyNeko 紫蓝品牌与全部业务逻辑；主操作使用纯色、描边或轻底色，不使用装饰性渐变；不新增虚构功能或数据。
 - 规格：`docs/superpowers/specs/2026-09-03-visionhub-inspired-ui-refresh-design.md`。
-- 下一步：用户复核规格后创建测试先行的实施计划，再进入 React/CSS 改造与真实截图 QA。
+- 计划：`docs/superpowers/plans/2026-09-03-visionhub-inspired-ui-refresh.md`。
+- 下一步：按计划从应用壳层、环境工作区、动效状态、响应式与视觉 QA 六个检查点逐步实现。
 
 ## 2026-09-03 — 公司端同步与 M1.4 向导/IPC 接续
 
