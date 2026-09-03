@@ -2,6 +2,14 @@
 
 本日志与 Git 提交同步维护。每条记录必须说明已验证与未验证事项，不以“已完成”替代测试证据。
 
+## 2026-09-03 — 暂停点：Tauri Windows 桌面壳层
+
+- 状态：已建立并暂停在可编译的桌面壳层；M1.4 仍在开发中，路线项未划线。
+- 改动：补齐 Tauri 2 的 Windows 二进制入口、构建脚本、应用配置与最小能力声明；React/Vite 的开发和构建命令由 Tauri 配置显式调用。新增项目内 `@tauri-apps/cli`，并从已确认的亮色品牌 Icon 生成 Windows `.ico` 和其他平台尺寸图标。能力文件只授予 `core:default`，未开放文件系统、Shell 或任意本地路径权限。
+- 验证：`pnpm --dir apps/desktop exec tauri info` 确认当前 Windows WebView2、MSVC、Rust、Node 和 pnpm 环境可用；`cargo check -p comfyneko-core --bin comfyneko` 与 `cargo clippy -p comfyneko-core -- -D warnings` 通过。
+- 暂停说明：下一条“应用数据库文件重启后仍可读回档案”的测试已写入本地工作树，尚未得到最终 Red/Green 结果，也未纳入本次提交；恢复后从该测试继续实现 `connect_file` 和受限 IPC。未生成安装包、未启动桌面窗口、未改动真实 ComfyUI 或用户媒体。
+- 下一步：恢复后先完成数据库文件连接的测试先行循环，再接入 Tauri IPC 和 React 环境向导。
+
 ## 2026-09-03 — M1.4 阶段四：环境档案命令边界
 
 - 状态：阶段性完成；M1.4 仍在开发中，路线项未划线。

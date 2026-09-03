@@ -3,6 +3,7 @@ node_modules/
 dist/
 target/
 apps/**/target/
+apps/desktop/src-tauri/gen/
 .worktrees/
 .playwright-cli/
 
