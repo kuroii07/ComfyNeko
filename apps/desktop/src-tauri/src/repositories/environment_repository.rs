@@ -16,7 +16,7 @@ use crate::domain::{
     environment::{ApiBinding, EnvironmentProfile, EnvironmentRoots},
 };
 
-const ENVIRONMENT_MIGRATION: &str = include_str!("../../migrations/0001_environments.sql");
+use super::migrations;
 
 #[derive(Clone)]
 pub struct EnvironmentRepository {
@@ -36,9 +36,13 @@ pub struct RepositoryError {
 
 impl EnvironmentRepository {
     pub async fn connect_in_memory() -> Result<Self, RepositoryError> {
+        let options = SqliteConnectOptions::new()
+            .filename(":memory:")
+            .create_if_missing(true)
+            .foreign_keys(true);
         let pool = SqlitePoolOptions::new()
             .max_connections(1)
-            .connect("sqlite::memory:")
+            .connect_with(options)
             .await
             .map_err(RepositoryError::database)?;
 
@@ -48,7 +52,8 @@ impl EnvironmentRepository {
     pub async fn connect_file(database_path: impl AsRef<Path>) -> Result<Self, RepositoryError> {
         let options = SqliteConnectOptions::new()
             .filename(database_path)
-            .create_if_missing(true);
+            .create_if_missing(true)
+            .foreign_keys(true);
         let pool = SqlitePoolOptions::new()
             .connect_with(options)
             .await
@@ -58,8 +63,7 @@ impl EnvironmentRepository {
     }
 
     pub async fn from_pool(pool: SqlitePool) -> Result<Self, RepositoryError> {
-        sqlx::query(ENVIRONMENT_MIGRATION)
-            .execute(&pool)
+        migrations::run(&pool)
             .await
             .map_err(RepositoryError::database)?;
 

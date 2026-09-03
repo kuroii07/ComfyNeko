@@ -337,7 +337,7 @@ impl AssetRepository {
 }
 ```
 
-- [ ] **Step 1: Write failing repository integration tests**
+- [x] **Step 1: Write failing repository integration tests**
 
 Create tests with real SQLite storage:
 
@@ -378,7 +378,7 @@ async fn changed_file_facts_update_the_existing_asset() {
 
 Also assert that the same normalized path under two different environment IDs creates two records.
 
-- [ ] **Step 2: Run the focused tests and verify RED**
+- [x] **Step 2: Run the focused tests and verify RED**
 
 Run:
 
@@ -388,7 +388,7 @@ cargo test -p comfyneko-core --test asset_repository
 
 Expected: compilation fails because the asset repository and migration do not exist.
 
-- [ ] **Step 3: Centralize forward-only migrations**
+- [x] **Step 3: Centralize forward-only migrations**
 
 Create `repositories::migrations::run(pool)` and execute:
 
@@ -401,7 +401,7 @@ const ASSET_MIGRATION: &str =
 
 Both `EnvironmentRepository::from_pool` and `AssetRepository::from_pool` call the shared runner. Configure SQLite connections with foreign keys enabled. Existing environment migration and tests must continue to work unchanged.
 
-- [ ] **Step 4: Implement exact asset schema and upsert behavior**
+- [x] **Step 4: Implement exact asset schema and upsert behavior**
 
 Create the schema from the design specification. Before inserting:
 
@@ -421,7 +421,7 @@ impl AssetUpsertOutcome {
 }
 ```
 
-- [ ] **Step 5: Verify GREEN**
+- [x] **Step 5: Verify GREEN**
 
 Run:
 
@@ -434,7 +434,7 @@ cargo test -p comfyneko-core
 
 Expected: insert/unchanged/update/environment-isolation tests pass and all existing tests remain green.
 
-- [ ] **Step 6: Commit the repository checkpoint**
+- [x] **Step 6: Commit the repository checkpoint**
 
 ```powershell
 git add apps/desktop/src-tauri/migrations apps/desktop/src-tauri/src/repositories apps/desktop/src-tauri/tests/asset_repository.rs
