@@ -18,6 +18,8 @@ import {
   type ProbeDiagnostic,
   type ProbeResult
 } from "./environmentApi";
+import { EnvironmentSettingsPage } from "./EnvironmentSettingsPage";
+import type { EnvironmentSettingsTab } from "./EnvironmentSettingsTabs";
 import type { RequestState, WizardStep } from "./environmentWizardTypes";
 import {
   tauriPathActionApi,
@@ -25,11 +27,6 @@ import {
 } from "./pathActionApi";
 
 type RootKey = keyof EnvironmentRoots;
-type EnvironmentSettingsTab =
-  | "general"
-  | "acceleration"
-  | "model-paths"
-  | "variables";
 type EditablePathKey = "python_executable" | RootKey;
 type DiscoveryState =
   | { status: "idle"; count: 0 }
@@ -59,13 +56,6 @@ const rootFields: RootKey[] = [
   "workflows",
   "custom_nodes"
 ];
-
-const settingsTabs = [
-  { id: "general", labelKey: "environment.tabs.general" },
-  { id: "acceleration", labelKey: "environment.tabs.acceleration" },
-  { id: "model-paths", labelKey: "environment.tabs.modelPaths" },
-  { id: "variables", labelKey: "environment.tabs.variables" }
-] as const;
 
 export function EnvironmentWizard({
   api = tauriEnvironmentApi,
@@ -278,15 +268,12 @@ export function EnvironmentWizard({
   }
 
   return (
-    <section
-      aria-label={translate(locale, "environment.title")}
-      className="environment-wizard"
+    <EnvironmentSettingsPage
+      activeTab={activeSettingsTab}
+      locale={locale}
+      onTabChange={setActiveSettingsTab}
+      profile={profile}
     >
-      <EnvironmentSettingsTabs
-        activeTab={activeSettingsTab}
-        locale={locale}
-        onTabChange={setActiveSettingsTab}
-      />
       {activeSettingsTab === "general" ? (
         <div
           aria-labelledby="environment-settings-tab-general"
@@ -509,59 +496,7 @@ export function EnvironmentWizard({
       {activeSettingsTab === "variables" ? (
         <EnvironmentVariablesPanel locale={locale} />
       ) : null}
-    </section>
-  );
-}
-
-function EnvironmentSettingsTabs({
-  activeTab,
-  locale,
-  onTabChange
-}: {
-  activeTab: EnvironmentSettingsTab;
-  locale: Locale;
-  onTabChange(tab: EnvironmentSettingsTab): void;
-}) {
-  function moveFocus(currentTab: EnvironmentSettingsTab, direction: 1 | -1) {
-    const currentIndex = settingsTabs.findIndex((tab) => tab.id === currentTab);
-    const nextIndex = (currentIndex + direction + settingsTabs.length) % settingsTabs.length;
-    onTabChange(settingsTabs[nextIndex].id);
-    requestAnimationFrame(() => {
-      document.getElementById(`environment-settings-tab-${settingsTabs[nextIndex].id}`)?.focus();
-    });
-  }
-
-  return (
-    <div
-      aria-label={translate(locale, "environment.title")}
-      className="environment-settings-tabs"
-      role="tablist"
-    >
-      {settingsTabs.map((tab) => (
-        <button
-          aria-controls={`environment-settings-panel-${tab.id}`}
-          aria-selected={activeTab === tab.id}
-          id={`environment-settings-tab-${tab.id}`}
-          key={tab.id}
-          role="tab"
-          tabIndex={activeTab === tab.id ? 0 : -1}
-          type="button"
-          onClick={() => onTabChange(tab.id)}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowRight") {
-              event.preventDefault();
-              moveFocus(tab.id, 1);
-            }
-            if (event.key === "ArrowLeft") {
-              event.preventDefault();
-              moveFocus(tab.id, -1);
-            }
-          }}
-        >
-          {translate(locale, tab.labelKey)}
-        </button>
-      ))}
-    </div>
+    </EnvironmentSettingsPage>
   );
 }
 

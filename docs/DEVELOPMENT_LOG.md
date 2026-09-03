@@ -2,6 +2,17 @@
 
 本日志与 Git 提交同步维护。每条记录必须说明已验证与未验证事项，不以“已完成”替代测试证据。
 
+## 2026-09-03 — M1.5.2 环境控制台壳层与无障碍页签
+
+- 状态：完成；下一步进入通用设置与模型路径的双栏面板重构。
+- 组件：新增 `EnvironmentSettingsPage` 和 `EnvironmentSettingsTabs`，将原先集中在 `EnvironmentWizard` 的页签逻辑抽出。页首显示当前环境名称与真实“待检查/可以保存”状态，不伪造 ACTIVE、GPU 或其他运行时信息。
+- 交互：四页签采用语义 `tablist/tab/tabpanel`；鼠标、Tab、Enter/Space 继续可用，新增左右箭头循环、Home 跳转通用设置、End 跳转环境变量和焦点跟随。页面内容区保留短进入动效，系统请求减少动效时关闭。
+- 视觉：新增固定状态页首、状态胶囊与 Token 化的响应式规则；大屏页首 sticky，900px 以下自动降为普通文档流，560px 以下纵向排列，避免窄窗口被固定层遮住。
+- 测试先行：先新增页首与页签键盘测试，确认因组件不存在而预期失败；实现后新测试 2 项及既有 `EnvironmentWizard` 14 项全部通过。
+- 验证：`pnpm.cmd --dir apps/desktop test EnvironmentSettingsPage.test.tsx EnvironmentWizard.test.tsx` 通过（2 文件、16 测试）；`pnpm.cmd --dir apps/desktop build` 通过。未运行真实 Tauri 窗口和 Playwright 尺寸矩阵，这些留到 M1.5.4 的完整视觉验收。
+- 安全边界：未改动 Rust、Tauri command、SQLite、外部路径、真实 ComfyUI 或 Python；原有自动发现、手动输入、原生选择、资源管理器打开、检查和保存调用仍由 `EnvironmentWizard` 管理。
+- 下一步：M1.5.3 将通用设置与模型路径按“说明列 + 单一配置面板”重组，并以路径行为回归测试保护现有能力。
+
 ## 2026-09-03 — M1.5.1 ComfyNexus 启发式环境设置：安全草案基础
 
 - 状态：已完成第一个可验证子里程碑；环境设置壳层与四个新面板尚未开始实现。

@@ -100,7 +100,7 @@ Update the three required project documents, then run `git diff --check`, commit
 - `EnvironmentSettingsTabs` receives `activeTab: EnvironmentSettingsTab`, `onTabChange(tab: EnvironmentSettingsTab): void`, and renders an accessible `tablist`.
 - `EnvironmentWizard` remains the owner of `profile`, probing, saving, discovery, and native-path actions; it passes callbacks and data into the page shell.
 
-- [ ] **Step 1: Write failing structure and keyboard tests**
+- [x] **Step 1: Write failing structure and keyboard tests**
 
 Create `EnvironmentSettingsPage.test.tsx` with:
 
@@ -119,27 +119,27 @@ it("moves the active tab right with ArrowRight", () => {
 });
 ```
 
-- [ ] **Step 2: Run the page tests and verify RED**
+- [x] **Step 2: Run the page tests and verify RED**
 
 Run: `pnpm.cmd --dir apps/desktop test EnvironmentSettingsPage.test.tsx`
 
 Expected: FAIL because the new page and tabs components do not exist.
 
-- [ ] **Step 3: Implement the shell, tabs, and adapter wiring**
+- [x] **Step 3: Implement the shell, tabs, and adapter wiring**
 
 Render a semantic header with actual profile status, a `保存本地草案` secondary action, and four `button` tabs. Use roving focus: ArrowRight and ArrowLeft wrap, Home selects `general`, End selects `variables`, and Enter/Space activate the focused tab. Keep all existing `EnvironmentWizard` actions attached to their existing handlers.
 
-- [ ] **Step 4: Add responsive, token-only shell CSS**
+- [x] **Step 4: Add responsive, token-only shell CSS**
 
 Add `.environment-settings-page`, `.environment-settings-page__header`, `.environment-settings-tabs`, and `.environment-settings-section` styles. Make the header sticky with `top: 0`; set the section grid to `minmax(210px, .85fr) minmax(0, 1.45fr)` above 900px and one column below 900px. Add `@media (prefers-reduced-motion: reduce)` overrides that remove transition duration and transforms.
 
-- [ ] **Step 5: Run focused and existing wizard tests green**
+- [x] **Step 5: Run focused and existing wizard tests green**
 
 Run: `pnpm.cmd --dir apps/desktop test EnvironmentSettingsPage.test.tsx EnvironmentWizard.test.tsx`
 
 Expected: PASS; existing selection, discovery, probe, and save tests remain green.
 
-- [ ] **Step 6: Record, commit, and push the shell milestone**
+- [x] **Step 6: Record, commit, and push the shell milestone**
 
 Update README, development log, and roadmap; run `git diff --check`; commit with `feat(env): add settings workspace shell`; push the verified branch.
 
