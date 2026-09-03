@@ -1,16 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { openDialog, openSystemPath } = vi.hoisted(() => ({
+const { invoke, openDialog } = vi.hoisted(() => ({
+  invoke: vi.fn(),
   openDialog: vi.fn(),
-  openSystemPath: vi.fn()
+}));
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke
 }));
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
   open: openDialog
-}));
-
-vi.mock("@tauri-apps/plugin-opener", () => ({
-  openPath: openSystemPath
 }));
 
 import { tauriPathActionApi } from "./pathActionApi";
@@ -53,15 +53,17 @@ describe("tauriPathActionApi", () => {
     });
   });
 
-  it("uses the official Tauri opener for configured paths", async () => {
+  it("uses the validated Rust command for configured paths", async () => {
     Object.defineProperty(window, "__TAURI_INTERNALS__", {
       configurable: true,
       value: {}
     });
-    openSystemPath.mockResolvedValue(undefined);
+    invoke.mockResolvedValue(undefined);
 
     await tauriPathActionApi.openPath("D:\\ComfyUI");
 
-    expect(openSystemPath).toHaveBeenCalledWith("D:\\ComfyUI");
+    expect(invoke).toHaveBeenCalledWith("open_path_in_explorer", {
+      path: "D:\\ComfyUI"
+    });
   });
 });

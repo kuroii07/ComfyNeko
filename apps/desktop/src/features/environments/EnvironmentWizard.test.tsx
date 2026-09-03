@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { EnvironmentWizard } from "./EnvironmentWizard";
-import type { ProbeResult } from "./environmentApi";
+import type { EnvironmentPathDiscovery, ProbeResult } from "./environmentApi";
 import {
   blockingProbe,
   clearProbe,
@@ -258,7 +258,9 @@ describe("EnvironmentWizard", () => {
     expect(
       screen.getByRole("button", { name: "正在选择 ComfyUI 根目录" })
     ).toBeDisabled();
-    expect(pathApi.selectDirectory).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(pathApi.selectDirectory).toHaveBeenCalledTimes(1)
+    );
 
     resolveSelection(null);
     await waitFor(() =>
@@ -266,6 +268,95 @@ describe("EnvironmentWizard", () => {
         screen.getByRole("button", { name: "选择路径 ComfyUI 根目录" })
       ).toBeEnabled()
     );
+  });
+
+  it("renders progress before invoking a native path picker", async () => {
+    let progressWasVisible = false;
+    const pathApi = {
+      openPath: vi.fn().mockResolvedValue(undefined),
+      selectDirectory: vi.fn().mockImplementation(() => {
+        progressWasVisible = Boolean(
+          screen.queryByRole("button", {
+            name: "正在选择 ComfyUI 根目录"
+          })
+        );
+        return Promise.resolve(null);
+      }),
+      selectPythonExecutable: vi.fn().mockResolvedValue(null)
+    };
+
+    render(
+      <EnvironmentWizard
+        initialProfile={readyProfile}
+        pathApi={pathApi}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "选择路径 ComfyUI 根目录" })
+    );
+
+    await waitFor(() => expect(pathApi.selectDirectory).toHaveBeenCalledOnce());
+    expect(progressWasVisible).toBe(true);
+  });
+
+  it("releases path controls as soon as folder selection finishes", async () => {
+    const pendingDiscovery = new Promise<EnvironmentPathDiscovery>(() => {});
+    const api = createApi({
+      discoverEnvironmentPaths: vi.fn().mockReturnValue(pendingDiscovery)
+    });
+    const pathApi = {
+      openPath: vi.fn().mockResolvedValue(undefined),
+      selectDirectory: vi.fn().mockResolvedValue("E:\\ComfyUI"),
+      selectPythonExecutable: vi.fn().mockResolvedValue(null)
+    };
+
+    render(
+      <EnvironmentWizard
+        api={api}
+        initialProfile={readyProfile}
+        pathApi={pathApi}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "选择路径 ComfyUI 根目录" })
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("textbox", { name: "ComfyUI 根目录" })).toHaveValue(
+        "E:\\ComfyUI"
+      )
+    );
+    expect(
+      screen.getByRole("button", { name: "选择路径 ComfyUI 根目录" })
+    ).toBeEnabled();
+  });
+
+  it("shows path action errors beside the affected field", async () => {
+    const pathApi = {
+      openPath: vi.fn().mockRejectedValue(new Error("路径不存在")),
+      selectDirectory: vi.fn().mockResolvedValue(null),
+      selectPythonExecutable: vi.fn().mockResolvedValue(null)
+    };
+
+    render(
+      <EnvironmentWizard
+        initialProfile={readyProfile}
+        pathApi={pathApi}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "打开 ComfyUI 根目录" })
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("路径不存在");
+    expect(
+      screen.getByRole("textbox", { name: "ComfyUI 根目录" })
+        .closest(".path-control")
+        ?.querySelector('[role="alert"]')
+    ).not.toBeNull();
   });
 });
 

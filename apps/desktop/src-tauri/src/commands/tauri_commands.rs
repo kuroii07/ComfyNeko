@@ -10,11 +10,19 @@ use crate::{
             discover_environment_paths as discover_paths, EnvironmentPathDiscovery,
         },
         environment_probe::{probe_environment_runtime, ProbeResult},
+        path_action::open_path_in_explorer as open_in_explorer,
     },
 };
 
 const PYTHON_PROBE_TIMEOUT: Duration = Duration::from_secs(8);
 const API_PROBE_TIMEOUT: Duration = Duration::from_secs(2);
+
+#[tauri::command]
+pub async fn open_path_in_explorer(path: PathBuf) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || open_in_explorer(&path))
+        .await
+        .map_err(|error| format!("打开路径任务失败：{error}"))?
+}
 
 #[tauri::command]
 pub async fn discover_environment_paths(

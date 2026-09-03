@@ -1,5 +1,5 @@
+import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { openPath } from "@tauri-apps/plugin-opener";
 
 export type PathActionApi = {
   openPath(path: string): Promise<void>;
@@ -12,7 +12,7 @@ export const tauriPathActionApi: PathActionApi = {
     if (!isTauriRuntime()) {
       return Promise.resolve();
     }
-    return openPath(path);
+    return invoke<void>("open_path_in_explorer", { path });
   },
   selectDirectory(initialPath) {
     if (!isTauriRuntime()) {

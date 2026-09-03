@@ -32,6 +32,10 @@ type DiscoveryState =
   | { status: "success"; count: number }
   | { status: "empty"; count: 0 }
   | { status: "error"; count: 0 };
+type PathActionError = {
+  actionKey: string;
+  message: string;
+};
 
 type EnvironmentWizardProps = {
   api?: EnvironmentApi;
@@ -70,6 +74,8 @@ export function EnvironmentWizard({
     count: 0
   });
   const [activePathAction, setActivePathAction] = useState<string | null>(null);
+  const [pathActionError, setPathActionError] =
+    useState<PathActionError | null>(null);
   const manuallyEditedPaths = useRef<Set<EditablePathKey>>(
     new Set([
       ...(initialProfile?.python_executable ? ["python_executable" as const] : []),
@@ -159,11 +165,6 @@ export function EnvironmentWizard({
     }
   }
 
-  function reportPathActionError(error: unknown) {
-    setRequestError(String(error));
-    setRequestState("error");
-  }
-
   async function runPathAction(
     actionId: string,
     operation: () => Promise<void>
@@ -174,12 +175,16 @@ export function EnvironmentWizard({
 
     activePathActionRef.current = actionId;
     setActivePathAction(actionId);
-    setRequestError("");
+    setPathActionError(null);
+    await waitForNextPaint();
 
     try {
       await operation();
     } catch (error) {
-      reportPathActionError(error);
+      setPathActionError({
+        actionKey: actionId.slice(0, actionId.lastIndexOf(":")),
+        message: error instanceof Error ? error.message : String(error)
+      });
     } finally {
       activePathActionRef.current = null;
       setActivePathAction(null);
@@ -196,7 +201,7 @@ export function EnvironmentWizard({
       discoveryRequestId.current += 1;
       setDiscoveryState({ status: "idle", count: 0 });
       updateProfile({ comfy_root: selected });
-      await discoverPaths(selected);
+      void discoverPaths(selected);
     });
   }
 
@@ -286,6 +291,11 @@ export function EnvironmentWizard({
             footer={<DiscoveryMessage locale={locale} state={discoveryState} />}
             label={translate(locale, "environment.comfyRoot")}
             locale={locale}
+            error={
+              pathActionError?.actionKey === "comfy_root"
+                ? pathActionError.message
+                : null
+            }
             openDisabled={!profile.comfy_root.trim()}
             onOpen={() =>
               void openConfiguredPath("comfy_root", profile.comfy_root.trim())
@@ -318,6 +328,11 @@ export function EnvironmentWizard({
             activeAction={activePathAction}
             label={translate(locale, "environment.python")}
             locale={locale}
+            error={
+              pathActionError?.actionKey === "python_executable"
+                ? pathActionError.message
+                : null
+            }
             openDisabled={!profile.python_executable}
             onOpen={() =>
               void openConfiguredPath(
@@ -375,6 +390,11 @@ export function EnvironmentWizard({
               activeAction={activePathAction}
               label={translate(locale, `environment.root.${rootKey}`)}
               locale={locale}
+              error={
+                pathActionError?.actionKey === rootKey
+                  ? pathActionError.message
+                  : null
+              }
               openDisabled={profile.roots[rootKey].length === 0}
               onOpen={() =>
                 void openConfiguredPath(
@@ -479,6 +499,7 @@ function PathControl({
   actionKey,
   activeAction,
   children,
+  error,
   footer,
   label,
   locale,
@@ -489,6 +510,7 @@ function PathControl({
   actionKey: string;
   activeAction: string | null;
   children: ReactNode;
+  error?: string | null;
   footer?: ReactNode;
   label: string;
   locale: Locale;
@@ -548,9 +570,24 @@ function PathControl({
           </button>
         </div>
       </div>
+      {error ? (
+        <small className="path-control__error" role="alert">
+          {translate(locale, "environment.requestFailed")}: {error}
+        </small>
+      ) : null}
       {footer}
     </div>
   );
+}
+
+function waitForNextPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => resolve());
+      return;
+    }
+    setTimeout(resolve, 0);
+  });
 }
 
 function DiscoveryMessage({
