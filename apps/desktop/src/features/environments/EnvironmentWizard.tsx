@@ -20,6 +20,8 @@ import {
 } from "./environmentApi";
 import { EnvironmentSettingsPage } from "./EnvironmentSettingsPage";
 import type { EnvironmentSettingsTab } from "./EnvironmentSettingsTabs";
+import { AccelerationSettings } from "./AccelerationSettings";
+import { EnvironmentVariablesSettings } from "./EnvironmentVariablesSettings";
 import { GeneralEnvironmentSettings } from "./GeneralEnvironmentSettings";
 import { ModelPathSettings } from "./ModelPathSettings";
 import {
@@ -447,7 +449,13 @@ export function EnvironmentWizard({
       ) : null}
 
       {activeSettingsTab === "acceleration" ? (
-        <RuntimeAccelerationPanel locale={locale} probe={probe} />
+        <AccelerationSettings
+          acceleration={settingsDraft.acceleration}
+          locale={locale}
+          onChange={(acceleration) =>
+            setSettingsDraft((current) => ({ ...current, acceleration }))
+          }
+        />
       ) : null}
 
       {activeSettingsTab === "model-paths" ? (
@@ -503,103 +511,15 @@ export function EnvironmentWizard({
       ) : null}
 
       {activeSettingsTab === "variables" ? (
-        <EnvironmentVariablesPanel locale={locale} />
+        <EnvironmentVariablesSettings
+          locale={locale}
+          value={settingsDraft.variables}
+          onChange={(variables) =>
+            setSettingsDraft((current) => ({ ...current, variables }))
+          }
+        />
       ) : null}
     </EnvironmentSettingsPage>
-  );
-}
-
-function EnvironmentTabIntro({
-  description,
-  title
-}: {
-  description: string;
-  title: string;
-}) {
-  return (
-    <header className="environment-tab-intro">
-      <strong>{title}</strong>
-      <p>{description}</p>
-    </header>
-  );
-}
-
-function RuntimeAccelerationPanel({
-  locale,
-  probe
-}: {
-  locale: Locale;
-  probe: ProbeResult | null;
-}) {
-  const pending = translate(locale, "environment.acceleration.pending");
-
-  return (
-    <div
-      aria-labelledby="environment-settings-tab-acceleration"
-      id="environment-settings-panel-acceleration"
-      role="tabpanel"
-    >
-      <EnvironmentTabIntro
-        description={translate(locale, "environment.acceleration.description")}
-        title={translate(locale, "environment.acceleration.title")}
-      />
-      <SettingsBlock title={translate(locale, "environment.acceleration.title")}>
-        <ReadOnlySetting
-          label={translate(locale, "environment.acceleration.python")}
-          value={probe?.python?.version ?? pending}
-        />
-        <ReadOnlySetting
-          label={translate(locale, "environment.acceleration.api")}
-          value={probe?.api?.comfy_version ?? pending}
-        />
-      </SettingsBlock>
-      <div className="environment-safety-notice" role="status">
-        {translate(locale, "environment.acceleration.safety")}
-      </div>
-    </div>
-  );
-}
-
-function EnvironmentVariablesPanel({ locale }: { locale: Locale }) {
-  return (
-    <div
-      aria-labelledby="environment-settings-tab-variables"
-      id="environment-settings-panel-variables"
-      role="tabpanel"
-    >
-      <EnvironmentTabIntro
-        description={translate(locale, "environment.variables.description")}
-        title={translate(locale, "environment.variables.title")}
-      />
-      <article className="settings-group environment-variables-panel">
-        <div className="settings-row environment-variables-panel__notice" role="status">
-          <div className="settings-row__main">
-            <strong>{translate(locale, "environment.variables.protected")}</strong>
-            <small>{translate(locale, "environment.variables.help")}</small>
-          </div>
-        </div>
-        <label className="environment-variables-panel__editor">
-          <span>{translate(locale, "environment.variables.input")}</span>
-          <textarea
-            aria-label={translate(locale, "environment.variables.input")}
-            disabled
-            placeholder={translate(locale, "environment.variables.placeholder")}
-            value=""
-          />
-        </label>
-      </article>
-    </div>
-  );
-}
-
-function ReadOnlySetting({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="settings-row">
-      <div className="settings-row__main">
-        <strong>{label}</strong>
-      </div>
-      <output className="settings-value settings-value--mono">{value}</output>
-    </div>
   );
 }
 

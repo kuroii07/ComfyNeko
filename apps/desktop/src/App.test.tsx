@@ -7,11 +7,13 @@ describe("App", () => {
   it("renders a focused environment settings page instead of a dashboard", () => {
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "环境设置" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "环境设置" })
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "本页说明" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "键盘操作" })).toBeInTheDocument();
     expect(screen.getByText("环境档案")).toBeInTheDocument();
-    expect(screen.queryByText("ENVIRONMENT CONTROL")).not.toBeInTheDocument();
+    expect(screen.getByText("ENVIRONMENT CONTROL")).toBeInTheDocument();
     expect(screen.queryByTestId("environment-status-rail")).not.toBeInTheDocument();
   });
 

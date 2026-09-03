@@ -25,10 +25,17 @@ describe("EnvironmentWizard", () => {
     expect(screen.getByText("模型配置集与目录映射")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "模型目录" })).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("tab", { name: "加速与架构" }));
+    fireEvent.click(screen.getByRole("button", { name: "性能优先" }));
+    expect(screen.getByRole("combobox", { name: "显存策略" })).toHaveValue("high");
+
     fireEvent.click(screen.getByRole("tab", { name: "环境变量" }));
     expect(screen.getByRole("tabpanel", { name: "环境变量" })).toBeInTheDocument();
     expect(screen.getByText("环境变量将以变更计划形式提供")).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "启动环境变量" })).toBeDisabled();
+    fireEvent.change(screen.getByRole("textbox", { name: "启动环境变量" }), {
+      target: { value: "BROKEN" }
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent("第 1 行缺少等号");
   });
 
   it("renders one settings-style editor without steps or a status dashboard", () => {

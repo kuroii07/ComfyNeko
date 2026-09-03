@@ -2,6 +2,16 @@
 
 本日志与 Git 提交同步维护。每条记录必须说明已验证与未验证事项，不以“已完成”替代测试证据。
 
+## 2026-09-03 — M1.5.4a 加速与环境变量本地草案面板
+
+- 状态：功能完成并推送；桌面视觉矩阵按用户要求留待 2026-09-04 手动检查。
+- 组件：新增 `AccelerationSettings` 与 `EnvironmentVariablesSettings`，并由 `EnvironmentWizard` 持有受控草案状态。加速页提供稳定兼容、平衡运行、性能优先和自定义预设，细项包括显存策略、注意力实现、精度、预览与日志级别；单独修改任何细项会自动标记为“自定义”。
+- 变量编辑器：支持 `KEY=VALUE` 草案、注释和空行；视觉行号与编辑区同步滚动，缺少等号、空键、重复键显示原始行号及可访问的即时错误提示。编辑器仍不执行、不保存到外部环境。
+- 测试先行：先新增两组面板测试与一条 `EnvironmentWizard` 集成断言，确认新组件不存在、预设按钮缺失、变量编辑器不可编辑时按预期失败；最小实现后转绿。全量回归还发现 `App.test.tsx` 使用重复标题查询、并错误否定已设计的 `ENVIRONMENT CONTROL` 页首标识，已只更新过期测试断言以匹配实际结构。
+- 验证：`pnpm.cmd --dir apps/desktop test` 通过（17 文件、48 测试）；`pnpm.cmd --dir apps/desktop build` 通过；`cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml` 通过（33 通过、2 项真实环境 smoke 因未配置 `COMFYNEKO_SMOKE_ROOT` 与 `COMFYNEKO_SMOKE_PYTHON` 正常跳过）。开发版 Tauri 窗口可启动并显示已保存环境的模型路径页；加速/变量、主题、语言、窄宽度与减少动效的真实视觉矩阵按用户要求未继续执行。
+- 安全边界：未修改 Rust command、SQLite、ComfyUI、Python、模型目录、输入/输出、启动脚本、`extra_model_paths.yaml`、进程或系统环境变量。`apps/desktop/src-tauri/Cargo.toml` 是既有用户改动，本提交不包含它。
+- 下一步：完成 M1.5.4b 的手动桌面视觉验收后，再规划 ChangePlan 的预览、备份、确认、审计与撤销机制；未具备该机制前，所有高风险环境字段持续只作为本地草案。
+
 ## 2026-09-03 — M1.5.3 通用与模型路径双栏配置面板
 
 - 状态：完成；下一步实现加速预设和可编辑的行号变量草案。
