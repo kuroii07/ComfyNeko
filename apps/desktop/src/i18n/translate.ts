@@ -2,8 +2,15 @@ export type Locale = "zh-CN" | "en-US";
 
 type MessageKey =
   | "app.title"
+  | "app.subtitle"
   | "common.back"
   | "common.next"
+  | "environment.command.apiOptional"
+  | "environment.command.diagnostics"
+  | "environment.command.eyebrow"
+  | "environment.command.localFirst"
+  | "environment.command.readOnly"
+  | "environment.command.start"
   | "environment.apiHelp"
   | "environment.apiPort"
   | "environment.comfyRoot"
@@ -52,8 +59,15 @@ type MessageKey =
 const messages: Record<Locale, Partial<Record<MessageKey, string>>> = {
   "zh-CN": {
     "app.title": "ComfyNeko",
+    "app.subtitle": "ComfyUI 资产中枢",
     "common.back": "上一步",
     "common.next": "下一步",
+    "environment.command.apiOptional": "API 可选",
+    "environment.command.diagnostics": "查看诊断",
+    "environment.command.eyebrow": "ENVIRONMENT CONTROL",
+    "environment.command.localFirst": "本地优先",
+    "environment.command.readOnly": "只读预检",
+    "environment.command.start": "开始配置",
     "environment.apiHelp": "API 为可选项，仅允许连接本机 127.0.0.1。",
     "environment.apiPort": "ComfyUI API 端口（可选）",
     "environment.comfyRoot": "ComfyUI 根目录",
@@ -100,8 +114,15 @@ const messages: Record<Locale, Partial<Record<MessageKey, string>>> = {
   },
   "en-US": {
     "app.title": "ComfyNeko",
+    "app.subtitle": "ComfyUI asset hub",
     "common.back": "Back",
     "common.next": "Next",
+    "environment.command.apiOptional": "Optional API",
+    "environment.command.diagnostics": "View diagnostics",
+    "environment.command.eyebrow": "ENVIRONMENT CONTROL",
+    "environment.command.localFirst": "Local first",
+    "environment.command.readOnly": "Read-only checks",
+    "environment.command.start": "Start setup",
     "environment.apiHelp": "The API is optional and limited to local host 127.0.0.1.",
     "environment.apiPort": "ComfyUI API port (optional)",
     "environment.comfyRoot": "ComfyUI root",

@@ -41,18 +41,13 @@ export function AppShell({ children, initialPreferences }: AppShellProps) {
             <img alt="" className="app-shell__brand-icon-light" src="/icon-light.png" />
             <img alt="" className="app-shell__brand-icon-dark" src="/icon-dark.png" />
           </span>
-          {collapsed ? null : <strong>{translate(locale, "app.title")}</strong>}
+          {collapsed ? null : (
+            <span className="app-shell__brand-copy">
+              <strong>{translate(locale, "app.title")}</strong>
+              <small>{translate(locale, "app.subtitle")}</small>
+            </span>
+          )}
         </div>
-        <Tooltip label={collapsedLabel}>
-          <button aria-label={collapsedLabel} type="button" onClick={() => {
-            setPreferences((current) => ({
-              ...current,
-              sidebarCollapsed: !current.sidebarCollapsed
-            }));
-          }}>
-            {collapsed ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
-          </button>
-        </Tooltip>
         <nav
           aria-label={translate(locale, "navigation.primary")}
           data-collapsed={collapsed}
@@ -74,40 +69,61 @@ export function AppShell({ children, initialPreferences }: AppShellProps) {
             </a>
           </Tooltip>
         </nav>
-        <div className="app-shell__preferences">
-          <label>
-            <span>{translate(locale, "shell.theme")}</span>
-            <select
-              aria-label={translate(locale, "shell.theme")}
-              value={preferences.theme}
-              onChange={(event) => {
+        <div className="app-shell__footer" data-testid="sidebar-footer">
+          <div className="app-shell__preferences">
+            <label>
+              <span>{translate(locale, "shell.theme")}</span>
+              <select
+                aria-label={translate(locale, "shell.theme")}
+                value={preferences.theme}
+                onChange={(event) => {
+                  setPreferences((current) => ({
+                    ...current,
+                    theme: event.target.value as ThemePreference
+                  }));
+                }}
+              >
+                <option value="light">{translate(locale, "shell.theme.light")}</option>
+                <option value="dark">{translate(locale, "shell.theme.dark")}</option>
+                <option value="system">{translate(locale, "shell.theme.system")}</option>
+              </select>
+            </label>
+            <label>
+              <span>{translate(locale, "shell.language")}</span>
+              <select
+                aria-label={translate(locale, "shell.language")}
+                value={locale}
+                onChange={(event) => {
+                  setPreferences((current) => ({
+                    ...current,
+                    locale: event.target.value as AppPreferences["locale"]
+                  }));
+                }}
+              >
+                <option value="zh-CN">{translate(locale, "shell.language.chinese")}</option>
+                <option value="en-US">{translate(locale, "shell.language.english")}</option>
+              </select>
+            </label>
+          </div>
+          <Tooltip label={collapsedLabel}>
+            <button
+              className="app-shell__collapse"
+              aria-label={collapsedLabel}
+              type="button"
+              onClick={() => {
                 setPreferences((current) => ({
                   ...current,
-                  theme: event.target.value as ThemePreference
+                  sidebarCollapsed: !current.sidebarCollapsed
                 }));
               }}
             >
-              <option value="light">{translate(locale, "shell.theme.light")}</option>
-              <option value="dark">{translate(locale, "shell.theme.dark")}</option>
-              <option value="system">{translate(locale, "shell.theme.system")}</option>
-            </select>
-          </label>
-          <label>
-            <span>{translate(locale, "shell.language")}</span>
-            <select
-              aria-label={translate(locale, "shell.language")}
-              value={locale}
-              onChange={(event) => {
-                setPreferences((current) => ({
-                  ...current,
-                  locale: event.target.value as AppPreferences["locale"]
-                }));
-              }}
-            >
-              <option value="zh-CN">{translate(locale, "shell.language.chinese")}</option>
-              <option value="en-US">{translate(locale, "shell.language.english")}</option>
-            </select>
-          </label>
+              {collapsed ? (
+                <PanelLeftOpen aria-hidden="true" />
+              ) : (
+                <PanelLeftClose aria-hidden="true" />
+              )}
+            </button>
+          </Tooltip>
         </div>
       </aside>
       <main className="app-shell__content">{content}</main>

@@ -4,6 +4,26 @@ import { describe, expect, it } from "vitest";
 import { AppShell } from "./AppShell";
 
 describe("AppShell", () => {
+  it("keeps product identity and footer controls in the expanded desktop shell", () => {
+    render(
+      <AppShell
+        initialPreferences={{
+          locale: "zh-CN",
+          sidebarCollapsed: false,
+          theme: "light"
+        }}
+      >
+        <p>内容</p>
+      </AppShell>
+    );
+
+    expect(screen.getByText("ComfyNeko")).toBeInTheDocument();
+    expect(screen.getByText("ComfyUI 资产中枢")).toBeInTheDocument();
+    expect(screen.getByTestId("sidebar-footer")).toContainElement(
+      screen.getByRole("combobox", { name: "外观主题" })
+    );
+  });
+
   it("persists a collapsed sidebar and applies the selected dark theme", () => {
     window.localStorage.clear();
 

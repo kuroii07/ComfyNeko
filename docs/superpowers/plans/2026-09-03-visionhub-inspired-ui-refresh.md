@@ -41,7 +41,7 @@
 - Produces: `AppShell` with `data-sidebar-collapsed`, `.app-shell__brand-copy`, `.app-shell__footer`, and stable `#environment-workspace` content target.
 - Produces: page command bar with `#environment-command-bar`, `#environment-wizard-start`, and `#environment-diagnostics` navigation targets.
 
-- [ ] **Step 1: Write failing shell and command-bar tests**
+- [x] **Step 1: Write failing shell and command-bar tests**
 
 Add to `apps/desktop/src/shell/AppShell.test.tsx`:
 
@@ -82,7 +82,7 @@ it("renders the environment command bar with real safety context", () => {
 });
 ```
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 Run:
 
@@ -92,7 +92,7 @@ pnpm.cmd --dir apps/desktop test AppShell.test.tsx App.test.tsx
 
 Expected: FAIL because `ComfyUI 资产中枢`, `sidebar-footer`, command-bar status copy, and command buttons do not exist.
 
-- [ ] **Step 3: Add exact locale keys for the shell and command bar**
+- [x] **Step 3: Add exact locale keys for the shell and command bar**
 
 Extend `MessageKey` and both message dictionaries in `apps/desktop/src/i18n/translate.ts` with:
 
@@ -129,7 +129,7 @@ Use these exact values:
 }
 ```
 
-- [ ] **Step 4: Implement the shell hierarchy and command bar**
+- [x] **Step 4: Implement the shell hierarchy and command bar**
 
 Update the `AppShell` brand block to:
 
@@ -200,7 +200,7 @@ function focusTarget(id: string) {
 }
 ```
 
-- [ ] **Step 5: Replace the base shell tokens and shell layout**
+- [x] **Step 5: Replace the base shell tokens and shell layout**
 
 In `tokens.css`, define these exact shared values:
 
@@ -260,7 +260,7 @@ In `index.css`:
 - style `.environment-command-bar` as a sticky three-column panel with `border-radius: var(--radius-panel)`, solid panel background, and no gradient;
 - preserve the existing mobile sidebar collapse behavior.
 
-- [ ] **Step 6: Run focused and full frontend checks**
+- [x] **Step 6: Run focused and full frontend checks**
 
 Run:
 
@@ -272,7 +272,7 @@ pnpm.cmd --dir apps/desktop build
 
 Expected: all tests PASS and Vite build exits `0`.
 
-- [ ] **Step 7: Commit the shell checkpoint**
+- [x] **Step 7: Commit the shell checkpoint**
 
 ```powershell
 git add apps/desktop/src/shell/AppShell.tsx apps/desktop/src/shell/AppShell.test.tsx apps/desktop/src/App.tsx apps/desktop/src/App.test.tsx apps/desktop/src/i18n/translate.ts apps/desktop/src/styles/tokens.css apps/desktop/src/styles/index.css
