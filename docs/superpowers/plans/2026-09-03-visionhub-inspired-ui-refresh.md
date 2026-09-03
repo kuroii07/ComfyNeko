@@ -1196,7 +1196,7 @@ git commit -m "docs(ui): record VisionHub-inspired visual QA"
 - Consumes: all implementation and QA checkpoints.
 - Produces: a clean, pushed `feat/environment-profile` branch with matching local and remote commit hashes.
 
-- [ ] **Step 1: Run the complete frontend gate**
+- [x] **Step 1: Run the complete frontend gate**
 
 ```powershell
 pnpm.cmd --dir apps/desktop test
@@ -1205,7 +1205,7 @@ pnpm.cmd --dir apps/desktop build
 
 Expected: all Vitest files pass and Vite build exits `0`.
 
-- [ ] **Step 2: Run the complete Rust gate**
+- [x] **Step 2: Run the complete Rust gate**
 
 ```powershell
 $env:Path="$env:USERPROFILE\.cargo\bin;$env:Path"
@@ -1216,7 +1216,7 @@ cargo test -p comfyneko-core
 
 Expected: format clean, Clippy 0 warnings, all non-ignored Rust tests pass.
 
-- [ ] **Step 3: Run repository checks**
+- [x] **Step 3: Run repository checks**
 
 ```powershell
 git diff --check
@@ -1225,7 +1225,7 @@ git status --short --branch
 
 Expected: no whitespace errors and only intended UI/doc changes before the final commit.
 
-- [ ] **Step 4: Commit any verification-only correction**
+- [x] **Step 4: Commit any verification-only correction**
 
 Only if Step 1–3 required a correction:
 
@@ -1234,13 +1234,13 @@ git add apps/desktop/src apps/desktop/src-tauri docs/DEVELOPMENT_LOG.md design-q
 git commit -m "fix(ui): resolve final desktop visual verification issues"
 ```
 
-- [ ] **Step 5: Push the feature branch**
+- [x] **Step 5: Push the feature branch**
 
 ```powershell
 git push origin feat/environment-profile
 ```
 
-- [ ] **Step 6: Verify remote equality**
+- [x] **Step 6: Verify remote equality**
 
 ```powershell
 $local = git rev-parse HEAD
