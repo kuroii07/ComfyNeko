@@ -198,7 +198,7 @@ pub fn discover_assets(
 ) -> DiscoveryReport;
 ```
 
-- [ ] **Step 1: Write failing discovery tests**
+- [x] **Step 1: Write failing discovery tests**
 
 Create a temporary tree containing:
 
@@ -244,7 +244,7 @@ Add focused tests for:
 - a directory symlink is not traversed when the platform permits creating the fixture;
 - valid observations remain present when another root fails.
 
-- [ ] **Step 2: Run the focused tests and verify RED**
+- [x] **Step 2: Run the focused tests and verify RED**
 
 Run:
 
@@ -254,7 +254,7 @@ cargo test -p comfyneko-core asset_discovery::tests
 
 Expected: compilation fails because `discover_assets`, `DiscoveryIssue`, and `DiscoveryReport` do not exist.
 
-- [ ] **Step 3: Implement guarded traversal**
+- [x] **Step 3: Implement guarded traversal**
 
 For each root:
 
@@ -280,7 +280,7 @@ ASSET_ENTRY_UNREADABLE
 ASSET_PATH_ESCAPES_ROOT
 ```
 
-- [ ] **Step 4: Verify GREEN and read-only behavior**
+- [x] **Step 4: Verify GREEN and read-only behavior**
 
 Run:
 
@@ -291,7 +291,7 @@ cargo test -p comfyneko-core asset_discovery::tests -- --nocapture
 
 Before and after the test, confirm the fixture contains the same source files and no additional file created by the scanner.
 
-- [ ] **Step 5: Commit the discovery checkpoint**
+- [x] **Step 5: Commit the discovery checkpoint**
 
 ```powershell
 git add apps/desktop/src-tauri/src/services/asset_discovery.rs
