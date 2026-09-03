@@ -25,6 +25,11 @@ import {
 } from "./pathActionApi";
 
 type RootKey = keyof EnvironmentRoots;
+type EnvironmentSettingsTab =
+  | "general"
+  | "acceleration"
+  | "model-paths"
+  | "variables";
 type EditablePathKey = "python_executable" | RootKey;
 type DiscoveryState =
   | { status: "idle"; count: 0 }
@@ -55,6 +60,13 @@ const rootFields: RootKey[] = [
   "custom_nodes"
 ];
 
+const settingsTabs = [
+  { id: "general", labelKey: "environment.tabs.general" },
+  { id: "acceleration", labelKey: "environment.tabs.acceleration" },
+  { id: "model-paths", labelKey: "environment.tabs.modelPaths" },
+  { id: "variables", labelKey: "environment.tabs.variables" }
+] as const;
+
 export function EnvironmentWizard({
   api = tauriEnvironmentApi,
   initialProbe,
@@ -67,6 +79,8 @@ export function EnvironmentWizard({
     () => initialProfile ?? createEmptyProfile()
   );
   const [probe, setProbe] = useState<ProbeResult | null>(initialProbe ?? null);
+  const [activeSettingsTab, setActiveSettingsTab] =
+    useState<EnvironmentSettingsTab>("general");
   const [requestState, setRequestState] = useState<RequestState>("idle");
   const [requestError, setRequestError] = useState("");
   const [discoveryState, setDiscoveryState] = useState<DiscoveryState>({
@@ -268,7 +282,18 @@ export function EnvironmentWizard({
       aria-label={translate(locale, "environment.title")}
       className="environment-wizard"
     >
-      <SettingsBlock title={translate(locale, "environment.section.basics")}>
+      <EnvironmentSettingsTabs
+        activeTab={activeSettingsTab}
+        locale={locale}
+        onTabChange={setActiveSettingsTab}
+      />
+      {activeSettingsTab === "general" ? (
+        <div
+          aria-labelledby="environment-settings-tab-general"
+          id="environment-settings-panel-general"
+          role="tabpanel"
+        >
+        <SettingsBlock title={translate(locale, "environment.section.basics")}>
         <SettingsField
           description={translate(locale, "environment.nameHelp")}
           label={translate(locale, "environment.name")}
@@ -378,42 +403,6 @@ export function EnvironmentWizard({
         </SettingsField>
       </SettingsBlock>
 
-      <SettingsBlock title={translate(locale, "environment.section.assets")}>
-        {rootFields.map((rootKey) => (
-          <SettingsField
-            description={translate(locale, `environment.rootHelp.${rootKey}`)}
-            key={rootKey}
-            label={translate(locale, `environment.root.${rootKey}`)}
-          >
-            <PathControl
-              actionKey={rootKey}
-              activeAction={activePathAction}
-              label={translate(locale, `environment.root.${rootKey}`)}
-              locale={locale}
-              error={
-                pathActionError?.actionKey === rootKey
-                  ? pathActionError.message
-                  : null
-              }
-              openDisabled={profile.roots[rootKey].length === 0}
-              onOpen={() =>
-                void openConfiguredPath(
-                  rootKey,
-                  profile.roots[rootKey][0] ?? ""
-                )
-              }
-              onSelect={() => void selectRoot(rootKey)}
-            >
-              <input
-                aria-label={translate(locale, `environment.root.${rootKey}`)}
-                value={profile.roots[rootKey].join("; ")}
-                onChange={(event) => updateRoot(rootKey, event.target.value)}
-              />
-            </PathControl>
-          </SettingsField>
-        ))}
-      </SettingsBlock>
-
       <SettingsBlock title={translate(locale, "environment.section.actions")}>
         <div className="settings-row settings-row--diagnostics">
           <div className="settings-row__main">
@@ -462,7 +451,211 @@ export function EnvironmentWizard({
           requestState={requestState}
         />
       </SettingsBlock>
+        </div>
+      ) : null}
+
+      {activeSettingsTab === "acceleration" ? (
+        <RuntimeAccelerationPanel locale={locale} probe={probe} />
+      ) : null}
+
+      {activeSettingsTab === "model-paths" ? (
+        <div
+          aria-labelledby="environment-settings-tab-model-paths"
+          id="environment-settings-panel-model-paths"
+          role="tabpanel"
+        >
+      <EnvironmentTabIntro
+        description={translate(locale, "environment.modelPaths.description")}
+        title={translate(locale, "environment.modelPaths.title")}
+      />
+      <SettingsBlock title={translate(locale, "environment.section.assets")}>
+        {rootFields.map((rootKey) => (
+          <SettingsField
+            description={translate(locale, `environment.rootHelp.${rootKey}`)}
+            key={rootKey}
+            label={translate(locale, `environment.root.${rootKey}`)}
+          >
+            <PathControl
+              actionKey={rootKey}
+              activeAction={activePathAction}
+              label={translate(locale, `environment.root.${rootKey}`)}
+              locale={locale}
+              error={
+                pathActionError?.actionKey === rootKey
+                  ? pathActionError.message
+                  : null
+              }
+              openDisabled={profile.roots[rootKey].length === 0}
+              onOpen={() =>
+                void openConfiguredPath(
+                  rootKey,
+                  profile.roots[rootKey][0] ?? ""
+                )
+              }
+              onSelect={() => void selectRoot(rootKey)}
+            >
+              <input
+                aria-label={translate(locale, `environment.root.${rootKey}`)}
+                value={profile.roots[rootKey].join("; ")}
+                onChange={(event) => updateRoot(rootKey, event.target.value)}
+              />
+            </PathControl>
+          </SettingsField>
+        ))}
+      </SettingsBlock>
+        </div>
+      ) : null}
+
+      {activeSettingsTab === "variables" ? (
+        <EnvironmentVariablesPanel locale={locale} />
+      ) : null}
     </section>
+  );
+}
+
+function EnvironmentSettingsTabs({
+  activeTab,
+  locale,
+  onTabChange
+}: {
+  activeTab: EnvironmentSettingsTab;
+  locale: Locale;
+  onTabChange(tab: EnvironmentSettingsTab): void;
+}) {
+  function moveFocus(currentTab: EnvironmentSettingsTab, direction: 1 | -1) {
+    const currentIndex = settingsTabs.findIndex((tab) => tab.id === currentTab);
+    const nextIndex = (currentIndex + direction + settingsTabs.length) % settingsTabs.length;
+    onTabChange(settingsTabs[nextIndex].id);
+    requestAnimationFrame(() => {
+      document.getElementById(`environment-settings-tab-${settingsTabs[nextIndex].id}`)?.focus();
+    });
+  }
+
+  return (
+    <div
+      aria-label={translate(locale, "environment.title")}
+      className="environment-settings-tabs"
+      role="tablist"
+    >
+      {settingsTabs.map((tab) => (
+        <button
+          aria-controls={`environment-settings-panel-${tab.id}`}
+          aria-selected={activeTab === tab.id}
+          id={`environment-settings-tab-${tab.id}`}
+          key={tab.id}
+          role="tab"
+          tabIndex={activeTab === tab.id ? 0 : -1}
+          type="button"
+          onClick={() => onTabChange(tab.id)}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowRight") {
+              event.preventDefault();
+              moveFocus(tab.id, 1);
+            }
+            if (event.key === "ArrowLeft") {
+              event.preventDefault();
+              moveFocus(tab.id, -1);
+            }
+          }}
+        >
+          {translate(locale, tab.labelKey)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function EnvironmentTabIntro({
+  description,
+  title
+}: {
+  description: string;
+  title: string;
+}) {
+  return (
+    <header className="environment-tab-intro">
+      <strong>{title}</strong>
+      <p>{description}</p>
+    </header>
+  );
+}
+
+function RuntimeAccelerationPanel({
+  locale,
+  probe
+}: {
+  locale: Locale;
+  probe: ProbeResult | null;
+}) {
+  const pending = translate(locale, "environment.acceleration.pending");
+
+  return (
+    <div
+      aria-labelledby="environment-settings-tab-acceleration"
+      id="environment-settings-panel-acceleration"
+      role="tabpanel"
+    >
+      <EnvironmentTabIntro
+        description={translate(locale, "environment.acceleration.description")}
+        title={translate(locale, "environment.acceleration.title")}
+      />
+      <SettingsBlock title={translate(locale, "environment.acceleration.title")}>
+        <ReadOnlySetting
+          label={translate(locale, "environment.acceleration.python")}
+          value={probe?.python?.version ?? pending}
+        />
+        <ReadOnlySetting
+          label={translate(locale, "environment.acceleration.api")}
+          value={probe?.api?.comfy_version ?? pending}
+        />
+      </SettingsBlock>
+      <div className="environment-safety-notice" role="status">
+        {translate(locale, "environment.acceleration.safety")}
+      </div>
+    </div>
+  );
+}
+
+function EnvironmentVariablesPanel({ locale }: { locale: Locale }) {
+  return (
+    <div
+      aria-labelledby="environment-settings-tab-variables"
+      id="environment-settings-panel-variables"
+      role="tabpanel"
+    >
+      <EnvironmentTabIntro
+        description={translate(locale, "environment.variables.description")}
+        title={translate(locale, "environment.variables.title")}
+      />
+      <article className="settings-group environment-variables-panel">
+        <div className="settings-row environment-variables-panel__notice" role="status">
+          <div className="settings-row__main">
+            <strong>{translate(locale, "environment.variables.protected")}</strong>
+            <small>{translate(locale, "environment.variables.help")}</small>
+          </div>
+        </div>
+        <label className="environment-variables-panel__editor">
+          <span>{translate(locale, "environment.variables.input")}</span>
+          <textarea
+            aria-label={translate(locale, "environment.variables.input")}
+            disabled
+            placeholder={translate(locale, "environment.variables.placeholder")}
+            value=""
+          />
+        </label>
+      </article>
+    </div>
+  );
+}
+
+function ReadOnlySetting({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="settings-row">
+      <div className="settings-row__main">
+        <strong>{label}</strong>
+      </div>
+      <output className="settings-value settings-value--mono">{value}</output>
+    </div>
   );
 }
 

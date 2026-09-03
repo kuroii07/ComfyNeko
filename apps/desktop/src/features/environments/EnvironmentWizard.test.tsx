@@ -10,12 +10,32 @@ import {
 } from "./environmentTestFixtures";
 
 describe("EnvironmentWizard", () => {
+  it("organizes environment settings into four safe configuration tabs", () => {
+    render(<EnvironmentWizard initialProfile={readyProfile} />);
+
+    expect(
+      screen.getByRole("tab", { name: "通用设置" })
+    ).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "加速与架构" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "模型路径" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "环境变量" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "模型路径" }));
+    expect(screen.getByRole("tabpanel", { name: "模型路径" })).toBeInTheDocument();
+    expect(screen.getByText("模型路径与工作目录")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "模型目录" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "环境变量" }));
+    expect(screen.getByRole("tabpanel", { name: "环境变量" })).toBeInTheDocument();
+    expect(screen.getByText("环境变量将以变更计划形式提供")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "启动环境变量" })).toBeDisabled();
+  });
+
   it("renders one settings-style editor without steps or a status dashboard", () => {
     render(<EnvironmentWizard initialProfile={readyProfile} />);
 
     expect(screen.getByText("基础配置")).toBeInTheDocument();
     expect(screen.getByText("运行环境")).toBeInTheDocument();
-    expect(screen.getByText("资产目录")).toBeInTheDocument();
     expect(screen.getByText("诊断与保存")).toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "环境绑定步骤" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("environment-status-rail")).not.toBeInTheDocument();
@@ -28,6 +48,9 @@ describe("EnvironmentWizard", () => {
       "placeholder",
       "D:\\ComfyUI"
     );
+
+    fireEvent.click(screen.getByRole("tab", { name: "模型路径" }));
+    expect(screen.getByText("资产目录")).toBeInTheDocument();
   });
 
   it("disables save while a blocking diagnostic exists", () => {
@@ -117,10 +140,11 @@ describe("EnvironmentWizard", () => {
     expect(screen.getByRole("textbox", { name: "Python 解释器" })).toHaveValue(
       "C:\\ComfyNekoFixtures\\ComfyUI\\.venv\\Scripts\\python.exe"
     );
+    expect(screen.getByText("已自动识别 6 项路径")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "模型路径" }));
     expect(screen.getByRole("textbox", { name: "模型目录" })).toHaveValue(
       "C:\\ComfyNekoFixtures\\ComfyUI\\models"
     );
-    expect(screen.getByText("已自动识别 6 项路径")).toBeInTheDocument();
   });
 
   it("keeps manually customized paths when automatic discovery runs again", async () => {
@@ -139,9 +163,11 @@ describe("EnvironmentWizard", () => {
 
     render(<EnvironmentWizard api={api} />);
 
+    fireEvent.click(screen.getByRole("tab", { name: "模型路径" }));
     fireEvent.change(screen.getByRole("textbox", { name: "模型目录" }), {
       target: { value: "E:\\My Models" }
     });
+    fireEvent.click(screen.getByRole("tab", { name: "通用设置" }));
     const root = screen.getByRole("textbox", { name: "ComfyUI 根目录" });
     fireEvent.change(root, { target: { value: "D:\\ComfyUI" } });
     fireEvent.blur(root);
@@ -151,6 +177,7 @@ describe("EnvironmentWizard", () => {
         "D:\\Auto\\python.exe"
       )
     );
+    fireEvent.click(screen.getByRole("tab", { name: "模型路径" }));
     expect(screen.getByRole("textbox", { name: "模型目录" })).toHaveValue(
       "E:\\My Models"
     );
@@ -159,9 +186,12 @@ describe("EnvironmentWizard", () => {
   it("uses equal single-line controls for every editable path", () => {
     render(<EnvironmentWizard initialProfile={readyProfile} />);
 
+    for (const label of ["ComfyUI 根目录", "Python 解释器"]) {
+      expect(screen.getByRole("textbox", { name: label }).tagName).toBe("INPUT");
+    }
+
+    fireEvent.click(screen.getByRole("tab", { name: "模型路径" }));
     for (const label of [
-      "ComfyUI 根目录",
-      "Python 解释器",
       "模型目录",
       "输入目录",
       "输出目录",
@@ -177,10 +207,14 @@ describe("EnvironmentWizard", () => {
 
     expect(
       screen.getAllByRole("button", { name: /^选择/ })
-    ).toHaveLength(7);
+    ).toHaveLength(2);
     expect(
       screen.getAllByRole("button", { name: /^打开/ })
-    ).toHaveLength(7);
+    ).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole("tab", { name: "模型路径" }));
+    expect(screen.getAllByRole("button", { name: /^选择/ })).toHaveLength(5);
+    expect(screen.getAllByRole("button", { name: /^打开/ })).toHaveLength(5);
   });
 
   it("selects folders and Python through native path actions, then opens them", async () => {

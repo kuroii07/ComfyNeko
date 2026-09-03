@@ -373,6 +373,128 @@ select:focus-visible {
   font-weight: 650;
 }
 
+.environment-settings-tabs {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  gap: var(--space-1);
+  margin: 0 auto var(--space-6);
+  padding: var(--space-1);
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-panel-subtle);
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.environment-settings-tabs button {
+  min-width: max-content;
+  min-height: 36px;
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+  transition:
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease,
+    transform var(--motion-fast) ease;
+}
+
+.environment-settings-tabs button:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.environment-settings-tabs button:active {
+  transform: translateY(1px);
+}
+
+.environment-settings-tabs button[aria-selected="true"] {
+  border-color: var(--color-border);
+  background: var(--color-elevated);
+  box-shadow: var(--shadow-panel);
+  color: var(--color-text);
+}
+
+.environment-tab-intro {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-panel-subtle);
+}
+
+.environment-tab-intro strong {
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.environment-tab-intro p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.environment-safety-notice {
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.55;
+}
+
+.environment-variables-panel {
+  overflow: visible;
+}
+
+.environment-variables-panel__notice {
+  min-height: 0;
+  background: var(--color-panel-subtle);
+}
+
+.environment-variables-panel__editor {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.environment-variables-panel__editor textarea {
+  width: 100%;
+  min-height: 146px;
+  resize: vertical;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-panel-subtle);
+  color: var(--color-text-muted);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.environment-variables-panel__editor textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
 .settings-group {
   overflow: hidden;
   border: 1px solid var(--color-border);
@@ -569,10 +691,13 @@ select:focus-visible {
 }
 
 .settings-value {
+  min-width: 0;
+  max-width: 58%;
   flex: 0 0 auto;
   color: var(--color-text);
   font-size: 13px;
   font-weight: 650;
+  overflow-wrap: anywhere;
 }
 
 .settings-value--mono {
@@ -849,6 +974,11 @@ select:focus-visible {
     padding-inline: 24px;
   }
 
+  .environment-settings-tabs {
+    width: 100%;
+    margin-bottom: var(--space-5);
+  }
+
   .settings-row {
     align-items: stretch;
     flex-direction: column;
@@ -900,6 +1030,12 @@ select:focus-visible {
     padding: 34px 16px 56px;
   }
 
+  .environment-settings-tabs button {
+    min-height: 34px;
+    padding-inline: var(--space-3);
+    font-size: 12px;
+  }
+
   .settings-page__header {
     margin-bottom: 24px;
   }
@@ -915,6 +1051,10 @@ select:focus-visible {
 
   .settings-row {
     padding-inline: 16px;
+  }
+
+  .settings-value {
+    max-width: 100%;
   }
 
   .path-control__row {
@@ -936,6 +1076,35 @@ select:focus-visible {
 
   .app-shell__collapse-action {
     display: none;
+  }
+}
+
+@media (max-width: 280px) {
+  .settings-page {
+    padding-inline: var(--space-3);
+  }
+
+  .settings-page__header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .page-header__actions {
+    align-self: flex-end;
+  }
+
+  .settings-page__heading h1 {
+    font-size: 21px;
+  }
+
+  .environment-tab-intro,
+  .environment-variables-panel__editor {
+    padding-inline: var(--space-3);
+  }
+
+  .environment-settings-tabs {
+    margin-inline: 0;
   }
 }
 

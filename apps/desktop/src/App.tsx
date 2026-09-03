@@ -38,7 +38,7 @@ export function App() {
                 help={translate(locale, "environment.pageHelp")}
                 keyboardHelp={translate(locale, "environment.keyboardHelp")}
                 locale={locale}
-                title={translate(locale, "environment.title")}
+                title={translate(locale, "environment.settingsTitle")}
               />
               <EnvironmentManager locale={locale} />
             </section>
