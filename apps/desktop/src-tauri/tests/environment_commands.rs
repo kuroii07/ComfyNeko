@@ -58,3 +58,28 @@ async fn command_revalidates_before_saving_instead_of_trusting_the_caller() {
     assert_eq!(error, EnvironmentCommandError::BlockingDiagnostics);
     assert!(commands.list_environments().await.unwrap().is_empty());
 }
+
+#[tokio::test]
+async fn command_service_reopens_saved_profiles_from_file() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let database_path = temp_dir.path().join("comfyneko.db");
+    let company = EnvironmentProfile::new("公司环境", PathBuf::from(r"D:\\ComfyUI"));
+    let home = EnvironmentProfile::new("家里环境", PathBuf::from(r"E:\\ComfyUI"));
+
+    {
+        let commands = EnvironmentCommandService::connect_file(&database_path)
+            .await
+            .unwrap();
+        commands.save_environment(&company, &[]).await.unwrap();
+        commands.save_environment(&home, &[]).await.unwrap();
+    }
+
+    let restarted = EnvironmentCommandService::connect_file(&database_path)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        restarted.list_environments().await.unwrap(),
+        vec![company, home]
+    );
+}

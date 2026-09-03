@@ -2,6 +2,16 @@
 
 本日志与 Git 提交同步维护。每条记录必须说明已验证与未验证事项，不以“已完成”替代测试证据。
 
+## 2026-09-03 — Phase 0 自动化持久化与只读验收
+
+- 状态：Phase 0 环境基础完成，下一阶段进入资产库 MVP。
+- 测试先行：新增命令服务文件数据库重启读回测试；测试最初因 `EnvironmentCommandService::connect_file` 不存在而编译失败，实现统一文件连接入口后转绿。
+- 改动：Tauri 启动与集成测试复用同一个 `EnvironmentCommandService::connect_file` 构造入口；测试在临时 SQLite 文件中保存“公司环境”和“家里环境”，释放服务后重新连接并完整读回两个档案。
+- 只读验收：使用 `D:\AIGC\ComfyUI Installs\ComfyUI_Company\ComfyUI` 与 `D:\AIGC\ComfyUI Installs\ComfyUI_Company\standalone-env\python.exe` 执行 opt-in ignored smoke；有效环境无阻塞诊断，错误 Python 返回 `PYTHON_NOT_FOUND`，离线本机 API 返回 `API_UNREACHABLE`，绑定根目录递归快照前后一致。
+- 构建验收：前端测试与 Vite 构建、Rust 格式化、Clippy、完整测试、真实环境 smoke、Tauri debug `--no-bundle` 构建和差异检查均作为本次提交门禁重新执行；桌面产物为仓库根目录下的 `target/debug/comfyneko.exe`。
+- 验收边界：用户批准以后默认不用 Computer Use，以自动化集成测试替代真实窗口保存/重启点击；因此本记录不声称完成真实鼠标点击或 WebView2 人工视觉验收。
+- 下一步：进入 Phase 1，先固定资产索引领域模型、只读增量扫描边界、取消/恢复语义和对应验收测试。
+
 ## 2026-09-03 — M1.4 已保存环境列表
 
 - 状态：前端功能完成，真实 Tauri 保存/重启读回待执行。

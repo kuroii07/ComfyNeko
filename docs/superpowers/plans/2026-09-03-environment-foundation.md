@@ -197,13 +197,13 @@ const canSave = probe.diagnostics.every((item) => item.severity !== "blocking");
 
 Run: `pnpm --dir apps/desktop test && pnpm --dir apps/desktop build && cargo test -p comfyneko-core`
 
-- [ ] **Step 5: Perform a manual Windows smoke test**
+- [x] **Step 5: Perform automated Windows persistence and read-only smoke tests**
 
-Bind a valid ComfyUI path, an invalid Python path, and an offline API profile. Confirm no files under the bound ComfyUI root change. Record screenshots and test notes in `outputs/`.
+Use the file-backed command-service integration test to save two profiles, release the service, reopen the same SQLite file, and read both profiles back. Run the opt-in live environment smoke with a valid ComfyUI path and Python executable; also verify an invalid Python path and offline loopback API diagnostic. Confirm the recursive bound-root snapshot is unchanged and record test notes in ignored `outputs/`.
 
-- [ ] **Step 6: Stop at a review checkpoint**
+- [x] **Step 6: Stop at a review checkpoint**
 
-Report the verification evidence and suggest a user-approved commit boundary. Do not commit automatically.
+Report the verification evidence and use the user-approved direct commit boundary. Do not claim real-window mouse interaction was performed.
 
 ## Plan Self-Review
 

@@ -1,4 +1,4 @@
-use std::{error::Error, fmt, time::Duration};
+use std::{error::Error, fmt, path::Path, time::Duration};
 
 use crate::{
     domain::{diagnostic::Diagnostic, environment::EnvironmentProfile},
@@ -20,6 +20,15 @@ pub enum EnvironmentCommandError {
 impl EnvironmentCommandService {
     pub fn new(repository: EnvironmentRepository) -> Self {
         Self { repository }
+    }
+
+    pub async fn connect_file(
+        database_path: impl AsRef<Path>,
+    ) -> Result<Self, EnvironmentCommandError> {
+        EnvironmentRepository::connect_file(database_path)
+            .await
+            .map(Self::new)
+            .map_err(|error| EnvironmentCommandError::Repository(error.to_string()))
     }
 
     pub async fn save_environment(

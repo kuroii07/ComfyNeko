@@ -6,7 +6,6 @@ pub mod services;
 use std::fs;
 
 use commands::{tauri_commands, EnvironmentCommandService};
-use repositories::environment_repository::EnvironmentRepository;
 use tauri::Manager;
 
 pub fn run() {
@@ -14,10 +13,10 @@ pub fn run() {
         .setup(|app| {
             let app_data_dir = app.path().app_local_data_dir()?;
             fs::create_dir_all(&app_data_dir)?;
-            let repository = tauri::async_runtime::block_on(EnvironmentRepository::connect_file(
-                app_data_dir.join("comfyneko.db"),
-            ))?;
-            app.manage(EnvironmentCommandService::new(repository));
+            let commands = tauri::async_runtime::block_on(
+                EnvironmentCommandService::connect_file(app_data_dir.join("comfyneko.db")),
+            )?;
+            app.manage(commands);
 
             Ok(())
         })

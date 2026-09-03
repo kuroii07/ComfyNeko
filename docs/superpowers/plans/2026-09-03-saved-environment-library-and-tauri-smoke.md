@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Display persisted ComfyUI environment profiles in the desktop UI, allow selecting a profile for review, refresh the list after a successful save, and prove persistence through a real Tauri restart.
+**Goal:** Display persisted ComfyUI environment profiles in the desktop UI, allow selecting a profile for review, refresh the list after a successful save, and prove persistence through the same file-backed command service used by Tauri.
 
-**Architecture:** Add an `EnvironmentManager` container above the existing wizard. It owns only list loading, selection, retry, and refresh state; the wizard continues to own the editable profile and probe/save request state. The existing `EnvironmentApi` remains the only frontend boundary, while the Rust command service and SQLite repository remain unchanged.
+**Architecture:** Add an `EnvironmentManager` container above the existing wizard. It owns only list loading, selection, retry, and refresh state; the wizard continues to own the editable profile and probe/save request state. The existing `EnvironmentApi` remains the only frontend boundary. The Rust command service gains one shared file-backed constructor used by both Tauri startup and restart testing; the SQLite repository schema and safety rules remain unchanged.
 
 **Tech Stack:** React 19, TypeScript, Vitest, Testing Library, Tauri 2, Rust, SQLite.
 
@@ -209,7 +209,7 @@ git push origin feat/environment-profile
 
 ---
 
-### Task 2: Prove Persistence in the Real Tauri Window
+### Task 2: Prove Persistence and Read-Only Safety with Automation
 
 **Files:**
 - Modify: `docs/DEVELOPMENT_LOG.md`
@@ -219,47 +219,30 @@ git push origin feat/environment-profile
 - Create ignored evidence under: `outputs/tauri-smoke/environment-profile/`
 
 **Interfaces:**
-- Consumes: the real `probe_environment`, `save_environment`, and `list_environments` commands plus the app-local SQLite file.
-- Produces: a recorded real-window save/restart/readback result without changing any bound ComfyUI files.
+- Consumes: the real `probe_environment`, `save_environment`, and `list_environments` command service plus a temporary file-backed SQLite database.
+- Produces: automated save/reopen/readback and live read-only probe evidence without changing any bound ComfyUI files.
 
-- [ ] **Step 1: Verify candidate environment paths without modifying them**
+- [x] **Step 1: Verify candidate environment paths without modifying them**
 
 Use `Test-Path` for the selected ComfyUI root and Python executable. Before starting the app, record a recursive file count, directory count, and latest write timestamp for the bound root.
 
-- [ ] **Step 2: Start the real Tauri development window**
+- [x] **Step 2: Add a file-backed command-service restart test**
 
-Run:
+Use `EnvironmentCommandService::connect_file` to save two profiles into a temporary SQLite file, drop the service, reconnect to the same file, and assert that both profiles are returned in order. Tauri startup must use this same constructor.
 
-```powershell
-$env:Path="$env:USERPROFILE\.cargo\bin;$env:Path"
-pnpm.cmd --dir apps/desktop exec tauri dev
-```
+- [x] **Step 3: Run the live read-only environment smoke**
 
-Wait for the ComfyNeko window and confirm the process remains running.
+Run the ignored `live_environment` test with the verified ComfyUI root and Python executable. Confirm a valid profile has no blocking diagnostics, a missing Python returns `PYTHON_NOT_FOUND`, and an unavailable loopback API returns `API_UNREACHABLE`.
 
-- [ ] **Step 3: Save a valid profile through the UI**
-
-In the real window:
-
-1. enter a unique environment name;
-2. enter the verified ComfyUI root;
-3. enter the verified Python executable;
-4. leave API empty unless a local ComfyUI API is already running;
-5. advance to Review and save;
-6. run the environment check;
-7. confirm no blocking diagnostic;
-8. save the profile;
-9. confirm the profile appears in “已保存环境”.
-
-- [ ] **Step 4: Restart and verify readback**
-
-Close the Tauri app, start it again with the same command, and confirm the saved profile appears without re-entering its fields. Record the database path and screenshot evidence, but do not copy the database into Git.
-
-- [ ] **Step 5: Prove the bound root stayed unchanged**
+- [x] **Step 4: Prove the bound root stayed unchanged**
 
 Repeat the same recursive count and latest-write checks from Step 1. The before and after values must match. If they do not, stop and report the changed paths before any further action.
 
-- [ ] **Step 6: Run the complete project gate**
+- [x] **Step 5: Build the real Tauri desktop binary without an installer**
+
+Run `pnpm.cmd --dir apps/desktop exec tauri build --debug --no-bundle` and verify the workspace target `target/debug/comfyneko.exe` is produced. This validates the real desktop compilation path without requiring GUI automation or installing a package.
+
+- [x] **Step 6: Run the complete project gate**
 
 Run:
 
@@ -270,18 +253,19 @@ $env:Path="$env:USERPROFILE\.cargo\bin;$env:Path"
 cargo fmt --check
 cargo clippy -p comfyneko-core --all-targets -- -D warnings
 cargo test -p comfyneko-core
+pnpm.cmd --dir apps/desktop exec tauri build --debug --no-bundle
 git diff --check
 ```
 
 Expected: frontend and Rust checks pass; only the opt-in live environment test remains ignored when its environment variables are absent.
 
-- [ ] **Step 7: Update milestone records and push**
+- [x] **Step 7: Update milestone records and push**
 
-Mark the manual smoke steps complete only with real-window evidence. Update README and the development log with the selected paths, database readback result, before/after root snapshot comparison, verification counts, and any automation limitation.
+Update README and the development log with the selected paths, automated database restart readback, before/after root snapshot comparison, verification counts, Tauri build result, and the explicit boundary that real-window mouse interaction was not performed. The user approved automation as the default replacement for Computer Use.
 
 ```powershell
 git add README.md docs/DEVELOPMENT_LOG.md docs/superpowers/plans
-git commit -m "docs(env): verify Tauri environment persistence"
+git commit -m "feat(env): verify persistent environment command service"
 git push origin feat/environment-profile
 ```
 
