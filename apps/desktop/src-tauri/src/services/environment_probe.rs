@@ -1,5 +1,7 @@
 use std::{fs, path::PathBuf, time::Duration};
 
+use serde::Serialize;
+
 use crate::{
     domain::{
         diagnostic::{Diagnostic, Severity},
@@ -12,7 +14,7 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ProbeResult {
     pub normalized_comfy_root: Option<PathBuf>,
     pub diagnostics: Vec<Diagnostic>,

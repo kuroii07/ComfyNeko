@@ -38,3 +38,23 @@ async fn round_trips_a_valid_environment_profile() {
 
     assert_eq!(repository.list().await.unwrap(), vec![profile]);
 }
+
+#[tokio::test]
+async fn persists_profiles_across_file_connections() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let database_path = temp_dir.path().join("comfyneko.db");
+    let profile = EnvironmentProfile::new("公司环境", PathBuf::from(r"D:\\ComfyUI"));
+
+    {
+        let repository = EnvironmentRepository::connect_file(&database_path)
+            .await
+            .unwrap();
+        repository.save_if_valid(&profile, &[]).await.unwrap();
+    }
+
+    let reopened = EnvironmentRepository::connect_file(&database_path)
+        .await
+        .unwrap();
+
+    assert_eq!(reopened.list().await.unwrap(), vec![profile]);
+}

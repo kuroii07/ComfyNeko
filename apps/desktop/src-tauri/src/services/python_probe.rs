@@ -4,17 +4,19 @@ use std::{
     time::Duration,
 };
 
+use serde::Serialize;
 use wait_timeout::ChildExt;
 
 use crate::domain::diagnostic::{Diagnostic, Severity};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ImportStatus {
     Available,
     Missing,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PythonProbe {
     pub executable: PathBuf,
     pub version: String,

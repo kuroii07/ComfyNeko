@@ -1,8 +1,9 @@
-use std::{error::Error, fmt};
+use std::{error::Error, fmt, time::Duration};
 
 use crate::{
     domain::{diagnostic::Diagnostic, environment::EnvironmentProfile},
     repositories::environment_repository::{EnvironmentRepository, SaveEnvironmentError},
+    services::environment_probe::{probe_environment_runtime, ProbeResult},
 };
 
 #[derive(Clone)]
@@ -39,6 +40,18 @@ impl EnvironmentCommandService {
             .list()
             .await
             .map_err(|error| EnvironmentCommandError::Repository(error.to_string()))
+    }
+
+    pub async fn probe_and_save_environment(
+        &self,
+        profile: &EnvironmentProfile,
+        python_timeout: Duration,
+        api_timeout: Duration,
+    ) -> Result<ProbeResult, EnvironmentCommandError> {
+        let probe = probe_environment_runtime(profile, python_timeout, api_timeout);
+        self.save_environment(profile, &probe.diagnostics).await?;
+
+        Ok(probe)
     }
 }
 

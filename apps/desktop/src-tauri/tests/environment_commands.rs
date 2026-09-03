@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 
 use comfyneko_core::{
     commands::{EnvironmentCommandError, EnvironmentCommandService},
@@ -37,4 +37,24 @@ async fn command_refuses_a_blocking_profile_without_replacing_a_saved_environmen
         commands.list_environments().await.unwrap(),
         vec![valid_profile]
     );
+}
+
+#[tokio::test]
+async fn command_revalidates_before_saving_instead_of_trusting_the_caller() {
+    let repository = EnvironmentRepository::connect_in_memory().await.unwrap();
+    let commands = EnvironmentCommandService::new(repository);
+    let invalid_profile =
+        EnvironmentProfile::new("不存在的环境", PathBuf::from(r"C:\\missing\\ComfyUI"));
+
+    let error = commands
+        .probe_and_save_environment(
+            &invalid_profile,
+            Duration::from_millis(20),
+            Duration::from_millis(20),
+        )
+        .await
+        .unwrap_err();
+
+    assert_eq!(error, EnvironmentCommandError::BlockingDiagnostics);
+    assert!(commands.list_environments().await.unwrap().is_empty());
 }

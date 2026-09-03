@@ -186,14 +186,14 @@ it("disables save while a blocking diagnostic exists", () => {
 
 Run: `pnpm --dir apps/desktop test EnvironmentWizard.test.tsx`
 
-- [ ] **Step 3: Implement migration, repository, Tauri command, and four-step wizard**
+- [x] **Step 3: Implement migration, repository, Tauri command, and four-step wizard**
 
 ```tsx
 const canSave = probe.diagnostics.every((item) => item.severity !== "blocking");
 <Button disabled={!canSave} onClick={saveEnvironment}>保存环境</Button>
 ```
 
-- [ ] **Step 4: Run UI, Rust, and build verification**
+- [x] **Step 4: Run UI, Rust, and build verification**
 
 Run: `pnpm --dir apps/desktop test && pnpm --dir apps/desktop build && cargo test -p comfyneko-core`
 

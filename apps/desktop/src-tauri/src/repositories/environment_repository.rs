@@ -1,7 +1,14 @@
-use std::{error::Error, fmt, path::PathBuf};
+use std::{
+    error::Error,
+    fmt,
+    path::{Path, PathBuf},
+};
 
 use chrono::{DateTime, Utc};
-use sqlx::{sqlite::SqlitePoolOptions, Row, SqlitePool};
+use sqlx::{
+    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
+    Row, SqlitePool,
+};
 use uuid::Uuid;
 
 use crate::domain::{
@@ -32,6 +39,18 @@ impl EnvironmentRepository {
         let pool = SqlitePoolOptions::new()
             .max_connections(1)
             .connect("sqlite::memory:")
+            .await
+            .map_err(RepositoryError::database)?;
+
+        Self::from_pool(pool).await
+    }
+
+    pub async fn connect_file(database_path: impl AsRef<Path>) -> Result<Self, RepositoryError> {
+        let options = SqliteConnectOptions::new()
+            .filename(database_path)
+            .create_if_missing(true);
+        let pool = SqlitePoolOptions::new()
+            .connect_with(options)
             .await
             .map_err(RepositoryError::database)?;
 

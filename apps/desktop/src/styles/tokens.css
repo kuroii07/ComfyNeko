@@ -29,7 +29,12 @@
   --color-accent-hover: #4338ca;
   --color-accent-soft: #e6e7ff;
   --color-focus: #818cf8;
+  --color-success: #157f50;
+  --color-success-soft: #e5f7ee;
   --color-warning: #a65f00;
+  --color-warning-soft: #fff4d8;
+  --color-error: #b42318;
+  --color-error-soft: #feeceb;
 }
 
 :root[data-theme="dark"] {
@@ -46,5 +51,10 @@
   --color-accent-hover: #c7d2fe;
   --color-accent-soft: #29345a;
   --color-focus: #c4b5fd;
+  --color-success: #70d7a7;
+  --color-success-soft: #183d30;
   --color-warning: #f5bc65;
+  --color-warning-soft: #4a351a;
+  --color-error: #ff9b94;
+  --color-error-soft: #4a2425;
 }

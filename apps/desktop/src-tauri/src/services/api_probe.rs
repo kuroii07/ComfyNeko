@@ -4,6 +4,7 @@ use std::{
     time::Duration,
 };
 
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::domain::{
@@ -11,7 +12,7 @@ use crate::domain::{
     environment::ApiBinding,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ApiProbe {
     pub reachable: bool,
     pub comfy_version: Option<String>,

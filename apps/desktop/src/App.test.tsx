@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { App } from "./App";
 
 describe("App", () => {
-  it("renders sticky environment guidance with a blocked save action", () => {
+  it("renders sticky environment guidance with blocked first-step navigation", () => {
     render(<App />);
 
     const guidance = screen
@@ -12,6 +12,7 @@ describe("App", () => {
       .closest("header");
 
     expect(guidance).toHaveAttribute("data-sticky", "true");
-    expect(screen.getByRole("button", { name: "保存环境" })).toBeDisabled();
+    expect(screen.getByRole("heading", { name: "基础信息" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "下一步" })).toBeDisabled();
   });
 });

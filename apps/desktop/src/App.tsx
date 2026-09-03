@@ -11,18 +11,7 @@ export function App() {
             <h1>{translate(locale, "environment.title")}</h1>
             <p>{translate(locale, "environment.description")}</p>
           </header>
-          <EnvironmentWizard
-            initialProbe={{
-              diagnostics: [
-                {
-                  code: "PYTHON_NOT_CONFIGURED",
-                  message: translate(locale, "environment.pythonNotConfigured"),
-                  severity: "blocking"
-                }
-              ]
-            }}
-            locale={locale}
-          />
+          <EnvironmentWizard locale={locale} />
         </section>
       )}
     </AppShell>

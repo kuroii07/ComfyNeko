@@ -2,6 +2,19 @@
 
 本日志与 Git 提交同步维护。每条记录必须说明已验证与未验证事项，不以“已完成”替代测试证据。
 
+## 2026-09-03 — 公司端同步与 M1.4 向导/IPC 接续
+
+- 状态：阶段性完成；M1.4 仍在开发中，尚未完成真实 Tauri 窗口的保存/重启读回验收。
+- 同步：公司电脑已从 `origin/feat/environment-profile` 建立同名跟踪分支与 `.worktrees/environment-profile` 隔离工作树；主目录 `main` 保持干净。补装 Rustup stable MSVC 工具链，确认 Node 24.19.0、pnpm 11.19.0、WebView2 与 Visual Studio Community 2026 可用。
+- 后端：新增 SQLite 文件连接，应用启动时在 `%LOCALAPPDATA%\com.kuroii.comfyneko\comfyneko.db` 初始化迁移；注册环境探测、保存和列表三个 Tauri command。保存命令会在后端重新探测，调用方不能用伪造空诊断绕过阻塞检查。
+- 前端：完成四步环境绑定向导、Tauri API 适配层、诊断列表、加载/成功/错误/空状态和中英文文案；补充成功、警告、错误主题 Token。修复 240px 英文长标题导致的横向溢出。
+- 测试先行：先确认文件数据库重连测试因 `connect_file` 缺失而失败，再实现并转绿；先确认命令自主复检测试因 `probe_and_save_environment` 缺失而失败，再实现并转绿；先确认四步向导测试因旧组件不支持步骤/API 而失败，再实现并转绿。
+- 验证：前端 6 个测试文件、11 个测试通过；TypeScript + Vite 生产构建通过。Rust `cargo check`、`cargo clippy -D warnings`、普通测试通过（12 个单测、2 个命令测试、3 个仓储测试）。真实环境 ignored smoke 使用 `ComfyUI_Company\ComfyUI` 与 `standalone-env\python.exe`，覆盖有效环境、错误 Python 和离线本机 API，诊断分别为无阻塞、`PYTHON_NOT_FOUND`、`API_UNREACHABLE`，递归目录快照确认探测前后未改变绑定根目录。
+- 视觉：Playwright 检查 1366px 亮色中文、暗色英文折叠侧栏以及 240/320/420px；最终三种窄宽度均无横向溢出，控制台 0 error。截图保存在 `outputs/playwright/`。当前应用级 UI 自检约 82/100，因设置页、Tooltip 边缘翻转/延迟、DPI/High Contrast 和真实窗口完整键盘路径未完成，不标记 UI 基线完成。
+- 已知限制：Computer Use 连续两次无法捕获 Tauri WebView2 窗口，系统返回 `SetIsBorderRequired failed: 不支持此接口 (0x80004002)`；因此本轮只确认桌面进程启动和应用数据库创建，未通过自动化点击真实窗口的“检查环境/保存环境”按钮。
+- Git：本轮未提交、未推送。建议以 `feat(env): connect onboarding wizard to persistent Tauri commands` 为提交边界，用户确认后再推送。
+- 下一步：在可交互的真实 Tauri 窗口完成保存与重启读回；展示已保存环境列表；再补设置页、Tooltip 边缘处理、DPI/High Contrast 与完整键盘验收。
+
 ## 2026-09-03 — 暂停点：Tauri Windows 桌面壳层
 
 - 状态：已建立并暂停在可编译的桌面壳层；M1.4 仍在开发中，路线项未划线。
