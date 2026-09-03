@@ -33,6 +33,16 @@ type MessageKey =
   | "environment.saveBlocked"
   | "environment.saved"
   | "environment.saving"
+  | "environment.status.api"
+  | "environment.status.aria"
+  | "environment.status.blocked"
+  | "environment.status.eyebrow"
+  | "environment.status.pending"
+  | "environment.status.profile"
+  | "environment.status.python"
+  | "environment.status.readOnly"
+  | "environment.status.ready"
+  | "environment.status.title"
   | "environment.step.1"
   | "environment.step.2"
   | "environment.step.3"
@@ -90,6 +100,16 @@ const messages: Record<Locale, Partial<Record<MessageKey, string>>> = {
     "environment.saveBlocked": "请先处理阻塞问题",
     "environment.saved": "环境已保存",
     "environment.saving": "保存中…",
+    "environment.status.api": "本机 API",
+    "environment.status.aria": "环境保存状态",
+    "environment.status.blocked": "存在阻塞项",
+    "environment.status.eyebrow": "ENVIRONMENT STATUS",
+    "environment.status.pending": "待检查",
+    "environment.status.profile": "档案完整度",
+    "environment.status.python": "Python",
+    "environment.status.readOnly": "预检只读取路径、解释器和本机 API，不修改 ComfyUI。",
+    "environment.status.ready": "可以保存",
+    "environment.status.title": "环境状态",
     "environment.step.1": "基础信息",
     "environment.step.2": "Python 与 API",
     "environment.step.3": "目录映射",
@@ -145,6 +165,16 @@ const messages: Record<Locale, Partial<Record<MessageKey, string>>> = {
     "environment.saveBlocked": "Resolve blocking issues first",
     "environment.saved": "Environment saved",
     "environment.saving": "Saving…",
+    "environment.status.api": "Local API",
+    "environment.status.aria": "Environment save status",
+    "environment.status.blocked": "Blocking issues",
+    "environment.status.eyebrow": "ENVIRONMENT STATUS",
+    "environment.status.pending": "Not checked",
+    "environment.status.profile": "Profile readiness",
+    "environment.status.python": "Python",
+    "environment.status.readOnly": "Checks only read paths, the interpreter, and the local API.",
+    "environment.status.ready": "Ready to save",
+    "environment.status.title": "Environment status",
     "environment.step.1": "Basics",
     "environment.step.2": "Python and API",
     "environment.step.3": "Folder mapping",

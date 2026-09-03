@@ -37,6 +37,7 @@
   --color-accent: #6574e8;
   --color-accent-hover: #5665d8;
   --color-accent-soft: #eef0ff;
+  --color-on-accent: #ffffff;
   --color-focus: #818cf8;
   --color-success: #157f50;
   --color-success-soft: #e5f7ee;
@@ -61,6 +62,7 @@
   --color-accent: #aab4ff;
   --color-accent-hover: #c4caff;
   --color-accent-soft: #30385e;
+  --color-on-accent: #171c28;
   --color-focus: #c4b5fd;
   --color-success: #70d7a7;
   --color-success-soft: #183d30;

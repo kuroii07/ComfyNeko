@@ -1,7 +1,10 @@
 import { useState, type ReactNode } from "react";
 
 import { translate, type Locale } from "../../i18n/translate";
-import { DiagnosticList } from "./DiagnosticList";
+import { EnvironmentActionBar } from "./EnvironmentActionBar";
+import { EnvironmentStatusRail } from "./EnvironmentStatusRail";
+import { EnvironmentStepRail } from "./EnvironmentStepRail";
+import { EnvironmentWorkspace } from "./EnvironmentWorkspace";
 import {
   tauriEnvironmentApi,
   type EnvironmentApi,
@@ -9,9 +12,8 @@ import {
   type EnvironmentRoots,
   type ProbeResult
 } from "./environmentApi";
+import type { RequestState, WizardStep } from "./environmentWizardTypes";
 
-type WizardStep = 1 | 2 | 3 | 4;
-type RequestState = "idle" | "probing" | "saving" | "saved" | "error";
 type RootKey = keyof EnvironmentRoots;
 
 type EnvironmentWizardProps = {
@@ -77,21 +79,9 @@ export function EnvironmentWizard({
     }
   }
 
-  return (
-    <section
-      aria-label={translate(locale, "environment.title")}
-      className="environment-wizard"
-    >
-      <ol aria-label={translate(locale, "environment.steps")} className="wizard-steps">
-        {([1, 2, 3, 4] as const).map((item) => (
-          <li aria-current={step === item ? "step" : undefined} key={item}>
-            <span>{item}</span>
-            {translate(locale, `environment.step.${item}`)}
-          </li>
-        ))}
-      </ol>
-
-      {step === 1 ? (
+  function renderCurrentStep() {
+    if (step === 1) {
+      return (
         <WizardPanel title={translate(locale, "environment.step.1")}>
           <label>
             <span>{translate(locale, "environment.name")}</span>
@@ -117,9 +107,11 @@ export function EnvironmentWizard({
             />
           </label>
         </WizardPanel>
-      ) : null}
+      );
+    }
 
-      {step === 2 ? (
+    if (step === 2) {
+      return (
         <WizardPanel title={translate(locale, "environment.step.2")}>
           <label>
             <span>{translate(locale, "environment.python")}</span>
@@ -157,9 +149,11 @@ export function EnvironmentWizard({
           </label>
           <p className="field-help">{translate(locale, "environment.apiHelp")}</p>
         </WizardPanel>
-      ) : null}
+      );
+    }
 
-      {step === 3 ? (
+    if (step === 3) {
+      return (
         <WizardPanel title={translate(locale, "environment.step.3")}>
           <p className="field-help">{translate(locale, "environment.rootsHelp")}</p>
           <div className="root-fields">
@@ -185,88 +179,87 @@ export function EnvironmentWizard({
             ))}
           </div>
         </WizardPanel>
-      ) : null}
+      );
+    }
 
-      {step === 4 ? (
-        <WizardPanel title={translate(locale, "environment.step.4")}>
-          <dl className="environment-summary">
-            <div>
-              <dt>{translate(locale, "environment.name")}</dt>
-              <dd>{profile.name || "—"}</dd>
-            </div>
-            <div>
-              <dt>{translate(locale, "environment.comfyRoot")}</dt>
-              <dd>{profile.comfy_root || "—"}</dd>
-            </div>
-            <div>
-              <dt>{translate(locale, "environment.python")}</dt>
-              <dd>{profile.python_executable || "—"}</dd>
-            </div>
-          </dl>
-          <DiagnosticList locale={locale} probe={probe} />
-          <div className="wizard-actions">
-            <button
-              className="button-secondary"
-              disabled={busy}
-              type="button"
-              onClick={runProbe}
-            >
-              {requestState === "probing"
-                ? translate(locale, "environment.probing")
-                : translate(locale, "environment.probe")}
-            </button>
-            <button
-              aria-describedby={
-                hasBlockingDiagnostic ? "environment-save-status" : undefined
-              }
-              disabled={hasBlockingDiagnostic || busy}
-              type="button"
-              onClick={saveEnvironment}
-            >
-              {requestState === "saving"
-                ? translate(locale, "environment.saving")
-                : translate(locale, "environment.save")}
-            </button>
+    return (
+      <WizardPanel title={translate(locale, "environment.step.4")}>
+        <dl className="environment-summary">
+          <div>
+            <dt>{translate(locale, "environment.name")}</dt>
+            <dd>{profile.name || "—"}</dd>
           </div>
-          {hasBlockingDiagnostic ? (
-            <p id="environment-save-status" className="wizard-notice">
-              {probe
-                ? translate(locale, "environment.saveBlocked")
-                : translate(locale, "environment.probeFirst")}
-            </p>
-          ) : null}
-          {requestState === "saved" ? (
-            <p className="wizard-feedback wizard-feedback--success" role="status">
-              {translate(locale, "environment.saved")}
-            </p>
-          ) : null}
-          {requestState === "error" ? (
-            <p className="wizard-feedback wizard-feedback--error" role="alert">
-              {translate(locale, "environment.requestFailed")}: {requestError}
-            </p>
-          ) : null}
-        </WizardPanel>
-      ) : null}
-
-      <div className="wizard-navigation">
-        <button
-          className="button-secondary"
-          disabled={step === 1 || busy}
-          type="button"
-          onClick={() => setStep((current) => Math.max(1, current - 1) as WizardStep)}
-        >
-          {translate(locale, "common.back")}
-        </button>
-        {step < 4 ? (
-          <button
-            disabled={(step === 1 && !canContinueFromBasics) || busy}
-            type="button"
-            onClick={() => setStep((current) => Math.min(4, current + 1) as WizardStep)}
-          >
-            {translate(locale, "common.next")}
-          </button>
+          <div>
+            <dt>{translate(locale, "environment.comfyRoot")}</dt>
+            <dd>{profile.comfy_root || "—"}</dd>
+          </div>
+          <div>
+            <dt>{translate(locale, "environment.python")}</dt>
+            <dd>{profile.python_executable || "—"}</dd>
+          </div>
+        </dl>
+        {hasBlockingDiagnostic ? (
+          <p id="environment-save-status" className="wizard-notice">
+            {probe
+              ? translate(locale, "environment.saveBlocked")
+              : translate(locale, "environment.probeFirst")}
+          </p>
         ) : null}
-      </div>
+        {requestState === "saved" ? (
+          <p className="wizard-feedback wizard-feedback--success" role="status">
+            {translate(locale, "environment.saved")}
+          </p>
+        ) : null}
+        {requestState === "error" ? (
+          <p className="wizard-feedback wizard-feedback--error" role="alert">
+            {translate(locale, "environment.requestFailed")}: {requestError}
+          </p>
+        ) : null}
+      </WizardPanel>
+    );
+  }
+
+  return (
+    <section
+      aria-label={translate(locale, "environment.title")}
+      className="environment-wizard"
+    >
+      <EnvironmentWorkspace
+        form={
+          <>
+            <EnvironmentStepRail currentStep={step} locale={locale} />
+            <div data-motion="step-enter" key={step}>
+              {renderCurrentStep()}
+            </div>
+            <EnvironmentActionBar
+              busy={busy}
+              canAdvance={step !== 1 || canContinueFromBasics}
+              canSave={!hasBlockingDiagnostic}
+              locale={locale}
+              requestState={requestState}
+              step={step}
+              onBack={() =>
+                setStep((current) => Math.max(1, current - 1) as WizardStep)
+              }
+              onNext={() =>
+                setStep((current) => Math.min(4, current + 1) as WizardStep)
+              }
+              onProbe={runProbe}
+              onSave={saveEnvironment}
+            />
+          </>
+        }
+        requestState={requestState}
+        status={
+          <EnvironmentStatusRail
+            locale={locale}
+            probe={probe}
+            profile={profile}
+            requestState={requestState}
+          />
+        }
+        step={step}
+      />
     </section>
   );
 }

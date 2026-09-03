@@ -16,5 +16,6 @@ describe("Tooltip", () => {
     fireEvent.focus(screen.getByRole("button", { name: "收起侧栏" }));
 
     expect(screen.getByRole("tooltip")).toHaveTextContent("收起侧栏");
+    expect(screen.getByRole("tooltip")).toBeVisible();
   });
 });
