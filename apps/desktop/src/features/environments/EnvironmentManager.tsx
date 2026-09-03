@@ -1,3 +1,4 @@
+import { Check, Plus, RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { translate, type Locale } from "../../i18n/translate";
@@ -33,10 +34,7 @@ export function EnvironmentManager({
       setProfiles(nextProfiles);
       setSelectedId((current) => {
         const candidateId = preferredId ?? current;
-        if (
-          candidateId &&
-          nextProfiles.some((profile) => profile.id === candidateId)
-        ) {
+        if (candidateId && nextProfiles.some((profile) => profile.id === candidateId)) {
           return candidateId;
         }
         return nextProfiles[0]?.id ?? null;
@@ -57,57 +55,78 @@ export function EnvironmentManager({
 
   return (
     <div className="environment-manager">
+      <div className="settings-section-label">
+        {translate(locale, "environment.library.section")}
+      </div>
       <section
         aria-label={translate(locale, "environment.library.title")}
-        className="environment-library"
+        className="settings-group environment-library"
       >
-        <header className="environment-library__heading">
-          <h2>{translate(locale, "environment.library.title")}</h2>
-          <span>
-            {profiles.length} {translate(locale, "environment.library.count")}
-          </span>
-        </header>
+        <div className="settings-row environment-library__header">
+          <div className="settings-row__main">
+            <strong>{translate(locale, "environment.library.title")}</strong>
+            <small>{translate(locale, "environment.library.description")}</small>
+          </div>
+          <button
+            className="button-secondary button-compact"
+            type="button"
+            onClick={() => setSelectedId(null)}
+          >
+            <Plus aria-hidden="true" />
+            {translate(locale, "environment.library.new")}
+          </button>
+        </div>
 
         {loadState === "loading" ? (
-          <p className="environment-library__message" role="status">
+          <div className="settings-row environment-library__message" role="status">
             {translate(locale, "environment.library.loading")}
-          </p>
+          </div>
         ) : null}
 
         {loadState === "error" ? (
-          <div className="environment-library__error" role="alert">
-            <p>
-              {translate(locale, "environment.library.error")}: {loadError}
-            </p>
-            <button type="button" onClick={() => void loadProfiles()}>
+          <div className="settings-row environment-library__error" role="alert">
+            <div className="settings-row__main">
+              <strong>{translate(locale, "environment.library.error")}</strong>
+              <small>{loadError}</small>
+            </div>
+            <button
+              className="button-secondary button-compact"
+              type="button"
+              onClick={() => void loadProfiles()}
+            >
+              <RotateCcw aria-hidden="true" />
               {translate(locale, "environment.library.retry")}
             </button>
           </div>
         ) : null}
 
         {loadState === "ready" && profiles.length === 0 ? (
-          <p className="environment-library__message">
-            {translate(locale, "environment.library.empty")}
-          </p>
+          <div className="settings-row environment-library__message">
+            <div className="settings-row__main">
+              <strong>{translate(locale, "environment.library.empty")}</strong>
+              <small>{translate(locale, "environment.library.emptyHelp")}</small>
+            </div>
+          </div>
         ) : null}
 
-        {loadState === "ready" && profiles.length > 0 ? (
-          <ul className="environment-library__list">
-            {profiles.map((profile) => (
-              <li key={profile.id}>
-                <button
-                  aria-label={`${profile.name} — ${profile.comfy_root}`}
-                  aria-pressed={profile.id === selectedId}
-                  type="button"
-                  onClick={() => setSelectedId(profile.id)}
-                >
+        {loadState === "ready"
+          ? profiles.map((profile) => (
+              <button
+                aria-label={`${profile.name} — ${profile.comfy_root}`}
+                aria-pressed={profile.id === selectedId}
+                className="settings-row environment-profile-row"
+                key={profile.id}
+                type="button"
+                onClick={() => setSelectedId(profile.id)}
+              >
+                <span className="settings-row__main">
                   <strong>{profile.name}</strong>
-                  <span>{profile.comfy_root}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+                  <small>{profile.comfy_root}</small>
+                </span>
+                {profile.id === selectedId ? <Check aria-hidden="true" /> : null}
+              </button>
+            ))
+          : null}
       </section>
 
       <EnvironmentWizard

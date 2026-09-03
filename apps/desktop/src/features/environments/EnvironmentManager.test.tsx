@@ -83,9 +83,6 @@ describe("EnvironmentManager", () => {
     render(<EnvironmentManager api={api} />);
 
     await screen.findByRole("button", { name: /公司环境/ });
-    fireEvent.click(screen.getByRole("button", { name: "下一步" }));
-    fireEvent.click(screen.getByRole("button", { name: "下一步" }));
-    fireEvent.click(screen.getByRole("button", { name: "下一步" }));
     fireEvent.click(screen.getByRole("button", { name: "检查环境" }));
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "保存环境" })).toBeEnabled()
@@ -102,6 +99,16 @@ function createEnvironmentApi(
   overrides: Partial<EnvironmentApi>
 ): EnvironmentApi {
   return {
+    discoverEnvironmentPaths: vi.fn().mockResolvedValue({
+      python_executable: null,
+      roots: {
+        models: [],
+        input: [],
+        output: [],
+        workflows: [],
+        custom_nodes: []
+      }
+    }),
     listEnvironments: vi.fn().mockResolvedValue([]),
     probeEnvironment: vi.fn().mockResolvedValue(clearProbe),
     saveEnvironment: vi.fn().mockResolvedValue(clearProbe),

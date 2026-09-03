@@ -2,6 +2,16 @@
 
 本日志与 Git 提交同步维护。每条记录必须说明已验证与未验证事项，不以“已完成”替代测试证据。
 
+## 2026-09-03 — 环境设置页与路径交互优化
+
+- 状态：环境配置交互已完成本轮整理，保留单列设置页方向，不引入仪表盘式卡片。
+- 界面：新增统一页面标题组件和偏好设置页；重整应用侧栏、页头帮助、主题、间距、路径行尺寸、反馈状态与中英文文案。
+- 路径：输入 ComfyUI 根目录后，只读识别现有的 Python、模型、输入、输出、工作流与自定义节点目录；所有字段仍可手动填写，且自动识别不会覆盖已经手动修改的值。
+- 原生交互：接入 Tauri 官方 Dialog 与 Opener 插件；Python 使用可执行文件选择器，其余路径使用目录选择器，并支持在资源管理器中打开。选择或打开期间提供即时状态与重复点击保护。
+- 安全边界：路径发现只检查目标是否存在，不创建目录、不修改 ComfyUI、Python、模型、输入、输出、工作流、节点或启动配置；未新增删除、移动、重命名和 Shell 权限。
+- 验证：Rust 格式检查与 Clippy `-D warnings` 通过；工作区 31 项非忽略测试通过（另有 2 项 opt-in 真实环境测试保持忽略）；前端 11 个测试文件、30 项测试通过；Vite 生产构建、Tauri Release `--no-bundle` 构建和差异检查通过。
+- 下一步：在用户手动验收后继续打磨路径行细节、弹窗响应体感、窄窗口布局与环境列表信息层级，再进入 Phase 1 后台扫描任务。
+
 ## 2026-09-03 — M2.1 只读资产索引基础
 
 - 状态：M2.1 完成；Phase 1 继续开发，下一步进入后台扫描任务与取消恢复。
@@ -18,7 +28,7 @@
 - 状态：Phase 0 环境基础完成，下一阶段进入资产库 MVP。
 - 测试先行：新增命令服务文件数据库重启读回测试；测试最初因 `EnvironmentCommandService::connect_file` 不存在而编译失败，实现统一文件连接入口后转绿。
 - 改动：Tauri 启动与集成测试复用同一个 `EnvironmentCommandService::connect_file` 构造入口；测试在临时 SQLite 文件中保存“公司环境”和“家里环境”，释放服务后重新连接并完整读回两个档案。
-- 只读验收：使用 `D:\AIGC\ComfyUI Installs\ComfyUI_Company\ComfyUI` 与 `D:\AIGC\ComfyUI Installs\ComfyUI_Company\standalone-env\python.exe` 执行 opt-in ignored smoke；有效环境无阻塞诊断，错误 Python 返回 `PYTHON_NOT_FOUND`，离线本机 API 返回 `API_UNREACHABLE`，绑定根目录递归快照前后一致。
+- 只读验收：使用本机测试 ComfyUI 根目录及其 `.venv\Scripts\python.exe` 执行 opt-in ignored smoke；有效环境无阻塞诊断，错误 Python 返回 `PYTHON_NOT_FOUND`，离线本机 API 返回 `API_UNREACHABLE`，绑定根目录递归快照前后一致。相邻的 `standalone-env\python.exe` 仅是基础解释器且不含 Torch，不再作为有效 ComfyUI 运行时记录。
 - 构建验收：前端测试与 Vite 构建、Rust 格式化、Clippy、完整测试、真实环境 smoke、Tauri debug `--no-bundle` 构建和差异检查均作为本次提交门禁重新执行；桌面产物为仓库根目录下的 `target/debug/comfyneko.exe`。
 - 验收边界：用户批准以后默认不用 Computer Use，以自动化集成测试替代真实窗口保存/重启点击；因此本记录不声称完成真实鼠标点击或 WebView2 人工视觉验收。
 - 下一步：进入 Phase 1，先固定资产索引领域模型、只读增量扫描边界、取消/恢复语义和对应验收测试。
@@ -76,7 +86,7 @@
 - 后端：新增 SQLite 文件连接，应用启动时在 `%LOCALAPPDATA%\com.kuroii.comfyneko\comfyneko.db` 初始化迁移；注册环境探测、保存和列表三个 Tauri command。保存命令会在后端重新探测，调用方不能用伪造空诊断绕过阻塞检查。
 - 前端：完成四步环境绑定向导、Tauri API 适配层、诊断列表、加载/成功/错误/空状态和中英文文案；补充成功、警告、错误主题 Token。修复 240px 英文长标题导致的横向溢出。
 - 测试先行：先确认文件数据库重连测试因 `connect_file` 缺失而失败，再实现并转绿；先确认命令自主复检测试因 `probe_and_save_environment` 缺失而失败，再实现并转绿；先确认四步向导测试因旧组件不支持步骤/API 而失败，再实现并转绿。
-- 验证：前端 6 个测试文件、11 个测试通过；TypeScript + Vite 生产构建通过。Rust `cargo check`、`cargo clippy -D warnings`、普通测试通过（12 个单测、2 个命令测试、3 个仓储测试）。真实环境 ignored smoke 使用 `ComfyUI_Company\ComfyUI` 与 `standalone-env\python.exe`，覆盖有效环境、错误 Python 和离线本机 API，诊断分别为无阻塞、`PYTHON_NOT_FOUND`、`API_UNREACHABLE`，递归目录快照确认探测前后未改变绑定根目录。
+- 验证：前端 6 个测试文件、11 个测试通过；TypeScript + Vite 生产构建通过。Rust `cargo check`、`cargo clippy -D warnings`、普通测试通过（12 个单测、2 个命令测试、3 个仓储测试）。真实环境 ignored smoke 使用本机测试 ComfyUI 根目录及其 `.venv\Scripts\python.exe`，覆盖有效环境、错误 Python 和离线本机 API，诊断分别为无阻塞、`PYTHON_NOT_FOUND`、`API_UNREACHABLE`，递归目录快照确认探测前后未改变绑定根目录。
 - 视觉：Playwright 检查 1366px 亮色中文、暗色英文折叠侧栏以及 240/320/420px；最终三种窄宽度均无横向溢出，控制台 0 error。截图保存在 `outputs/playwright/`。当前应用级 UI 自检约 82/100，因设置页、Tooltip 边缘翻转/延迟、DPI/High Contrast 和真实窗口完整键盘路径未完成，不标记 UI 基线完成。
 - 已知限制：Computer Use 连续两次无法捕获 Tauri WebView2 窗口，系统返回 `SetIsBorderRequired failed: 不支持此接口 (0x80004002)`；因此本轮只确认桌面进程启动和应用数据库创建，未通过自动化点击真实窗口的“检查环境/保存环境”按钮。
 - Git：本轮未提交、未推送。建议以 `feat(env): connect onboarding wizard to persistent Tauri commands` 为提交边界，用户确认后再推送。

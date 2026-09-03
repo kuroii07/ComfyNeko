@@ -28,6 +28,11 @@ export type EnvironmentProfile = {
   last_validated_at: string | null;
 };
 
+export type EnvironmentPathDiscovery = {
+  python_executable: string | null;
+  roots: EnvironmentRoots;
+};
+
 export type ProbeResult = {
   normalized_comfy_root: string | null;
   diagnostics: ProbeDiagnostic[];
@@ -43,13 +48,25 @@ export type ProbeResult = {
 };
 
 export type EnvironmentApi = {
+  discoverEnvironmentPaths(comfyRoot: string): Promise<EnvironmentPathDiscovery>;
   listEnvironments(): Promise<EnvironmentProfile[]>;
   probeEnvironment(profile: EnvironmentProfile): Promise<ProbeResult>;
   saveEnvironment(profile: EnvironmentProfile): Promise<ProbeResult>;
 };
 
 export const tauriEnvironmentApi: EnvironmentApi = {
+  discoverEnvironmentPaths(comfyRoot) {
+    if (!isTauriRuntime()) {
+      return Promise.resolve(createEmptyDiscovery());
+    }
+    return invoke<EnvironmentPathDiscovery>("discover_environment_paths", {
+      comfyRoot
+    });
+  },
   listEnvironments() {
+    if (!isTauriRuntime()) {
+      return Promise.resolve([]);
+    }
     return invoke<EnvironmentProfile[]>("list_environments");
   },
   probeEnvironment(profile) {
@@ -59,3 +76,20 @@ export const tauriEnvironmentApi: EnvironmentApi = {
     return invoke<ProbeResult>("save_environment", { profile });
   }
 };
+
+function isTauriRuntime(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+function createEmptyDiscovery(): EnvironmentPathDiscovery {
+  return {
+    python_executable: null,
+    roots: {
+      models: [],
+      input: [],
+      output: [],
+      workflows: [],
+      custom_nodes: []
+    }
+  };
+}

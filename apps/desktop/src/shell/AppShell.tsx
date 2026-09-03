@@ -1,4 +1,11 @@
-import { Home, PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react";
+import {
+  Database,
+  Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings,
+  Sun
+} from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { Tooltip } from "../components/Tooltip";
@@ -6,32 +13,54 @@ import { translate, type Locale } from "../i18n/translate";
 import {
   type AppPreferences,
   readPreferences,
-  type ThemePreference,
   writePreferences
 } from "../preferences/preferences";
 
+export type AppPage = "environments" | "settings";
+
+export type AppShellRenderContext = {
+  locale: Locale;
+  page: AppPage;
+  preferences: AppPreferences;
+  updatePreferences(patch: Partial<AppPreferences>): void;
+};
+
 type AppShellProps = {
-  children: ReactNode | ((locale: Locale) => ReactNode);
+  children: ReactNode | ((context: AppShellRenderContext) => ReactNode);
   initialPreferences?: AppPreferences;
 };
 
 export function AppShell({ children, initialPreferences }: AppShellProps) {
+  const [page, setPage] = useState<AppPage>("environments");
   const [preferences, setPreferences] = useState<AppPreferences>(
     () => initialPreferences ?? readPreferences(window.localStorage)
   );
   const locale = preferences.locale;
   const collapsed = preferences.sidebarCollapsed;
-  const collapsedLabel = translate(
+  const resolvedTheme = resolveTheme(preferences.theme);
+  const collapseLabel = translate(
     locale,
     collapsed ? "navigation.expand" : "navigation.collapse"
   );
-  const content = typeof children === "function" ? children(locale) : children;
+  const themeLabel = translate(
+    locale,
+    resolvedTheme === "light" ? "shell.theme.switchDark" : "shell.theme.switchLight"
+  );
+
+  function updatePreferences(patch: Partial<AppPreferences>) {
+    setPreferences((current) => ({ ...current, ...patch }));
+  }
+
+  const content =
+    typeof children === "function"
+      ? children({ locale, page, preferences, updatePreferences })
+      : children;
 
   useEffect(() => {
-    document.documentElement.dataset.theme = resolveTheme(preferences.theme);
+    document.documentElement.dataset.theme = resolvedTheme;
     document.documentElement.lang = locale;
     writePreferences(window.localStorage, preferences);
-  }, [locale, preferences]);
+  }, [locale, preferences, resolvedTheme]);
 
   return (
     <div className="app-shell" data-sidebar-collapsed={collapsed}>
@@ -48,86 +77,100 @@ export function AppShell({ children, initialPreferences }: AppShellProps) {
             </span>
           )}
         </div>
+
         <nav
           aria-label={translate(locale, "navigation.primary")}
           data-collapsed={collapsed}
         >
-          <Tooltip label={translate(locale, "navigation.home")}>
-            <a aria-label={translate(locale, "navigation.home")} href="#home">
-              <Home aria-hidden="true" />
-              {collapsed ? null : <span>{translate(locale, "navigation.home")}</span>}
-            </a>
-          </Tooltip>
-          <Tooltip label={translate(locale, "navigation.environment")}>
-            <a
-              aria-current="page"
-              aria-label={translate(locale, "navigation.environment")}
-              href="#environments"
-            >
-              <Settings aria-hidden="true" />
-              {collapsed ? null : <span>{translate(locale, "navigation.environment")}</span>}
-            </a>
-          </Tooltip>
+          <SidebarAction
+            active={page === "environments"}
+            collapsed={collapsed}
+            icon={<Database aria-hidden="true" />}
+            label={translate(locale, "navigation.environment")}
+            onClick={() => setPage("environments")}
+          />
+          <SidebarAction
+            active={page === "settings"}
+            collapsed={collapsed}
+            icon={<Settings aria-hidden="true" />}
+            label={translate(locale, "navigation.settings")}
+            onClick={() => setPage("settings")}
+          />
         </nav>
+
         <div className="app-shell__footer" data-testid="sidebar-footer">
-          <div className="app-shell__preferences">
-            <label>
-              <span>{translate(locale, "shell.theme")}</span>
-              <select
-                aria-label={translate(locale, "shell.theme")}
-                value={preferences.theme}
-                onChange={(event) => {
-                  setPreferences((current) => ({
-                    ...current,
-                    theme: event.target.value as ThemePreference
-                  }));
-                }}
-              >
-                <option value="light">{translate(locale, "shell.theme.light")}</option>
-                <option value="dark">{translate(locale, "shell.theme.dark")}</option>
-                <option value="system">{translate(locale, "shell.theme.system")}</option>
-              </select>
-            </label>
-            <label>
-              <span>{translate(locale, "shell.language")}</span>
-              <select
-                aria-label={translate(locale, "shell.language")}
-                value={locale}
-                onChange={(event) => {
-                  setPreferences((current) => ({
-                    ...current,
-                    locale: event.target.value as AppPreferences["locale"]
-                  }));
-                }}
-              >
-                <option value="zh-CN">{translate(locale, "shell.language.chinese")}</option>
-                <option value="en-US">{translate(locale, "shell.language.english")}</option>
-              </select>
-            </label>
-          </div>
-          <Tooltip label={collapsedLabel}>
+          <Tooltip label={themeLabel}>
             <button
-              className="app-shell__collapse"
-              aria-label={collapsedLabel}
+              aria-label={themeLabel}
+              className="app-shell__footer-action"
               type="button"
-              onClick={() => {
-                setPreferences((current) => ({
-                  ...current,
-                  sidebarCollapsed: !current.sidebarCollapsed
-                }));
-              }}
+              onClick={() =>
+                updatePreferences({
+                  theme: resolvedTheme === "light" ? "dark" : "light"
+                })
+              }
+            >
+              {resolvedTheme === "light" ? (
+                <Sun aria-hidden="true" />
+              ) : (
+                <Moon aria-hidden="true" />
+              )}
+              {collapsed ? null : (
+                <span>{translate(locale, `shell.theme.${resolvedTheme}`)}</span>
+              )}
+            </button>
+          </Tooltip>
+
+          <Tooltip label={collapseLabel}>
+            <button
+              aria-label={collapseLabel}
+              className="app-shell__footer-action"
+              type="button"
+              onClick={() =>
+                updatePreferences({ sidebarCollapsed: !preferences.sidebarCollapsed })
+              }
             >
               {collapsed ? (
                 <PanelLeftOpen aria-hidden="true" />
               ) : (
                 <PanelLeftClose aria-hidden="true" />
               )}
+              {collapsed ? null : <span>{collapseLabel}</span>}
             </button>
           </Tooltip>
         </div>
       </aside>
       <main className="app-shell__content">{content}</main>
     </div>
+  );
+}
+
+function SidebarAction({
+  active,
+  collapsed,
+  icon,
+  label,
+  onClick
+}: {
+  active: boolean;
+  collapsed: boolean;
+  icon: ReactNode;
+  label: string;
+  onClick(): void;
+}) {
+  return (
+    <Tooltip label={label}>
+      <button
+        aria-current={active ? "page" : undefined}
+        aria-label={label}
+        className="app-shell__nav-action"
+        type="button"
+        onClick={onClick}
+      >
+        {icon}
+        {collapsed ? null : <span>{label}</span>}
+      </button>
+    </Tooltip>
   );
 }
 

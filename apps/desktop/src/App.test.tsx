@@ -1,17 +1,28 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { App } from "./App";
 
 describe("App", () => {
-  it("renders the environment command bar with real safety context", () => {
+  it("renders a focused environment settings page instead of a dashboard", () => {
     render(<App />);
 
-    const commandBar = screen.getByTestId("environment-command-bar");
-    expect(commandBar).toHaveTextContent("ENVIRONMENT CONTROL");
-    expect(commandBar).toHaveTextContent("本地优先");
-    expect(commandBar).toHaveTextContent("只读预检");
-    expect(screen.getByRole("button", { name: "开始配置" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "查看诊断" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "环境管理" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "本页说明" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "键盘操作" })).toBeInTheDocument();
+    expect(screen.getByText("环境档案")).toBeInTheDocument();
+    expect(screen.queryByText("ENVIRONMENT CONTROL")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("environment-status-rail")).not.toBeInTheDocument();
+  });
+
+  it("opens the preferences page from the sidebar", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "偏好设置" }));
+
+    expect(screen.getByRole("heading", { name: "偏好设置" })).toBeInTheDocument();
+    expect(screen.getByText("外观与语言")).toBeInTheDocument();
+    expect(screen.getByText("应用信息")).toBeInTheDocument();
+    expect(screen.getByText("本地优先")).toBeInTheDocument();
   });
 });

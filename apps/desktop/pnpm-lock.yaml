@@ -11,6 +11,12 @@ importers:
       '@tauri-apps/api':
         specifier: ^2.8.0
         version: 2.11.1
+      '@tauri-apps/plugin-dialog':
+        specifier: 2.7.3
+        version: 2.7.3
+      '@tauri-apps/plugin-opener':
+        specifier: 2.5.5
+        version: 2.5.5
       lucide-react:
         specifier: ^0.468.0
         version: 0.468.0(react@19.2.8)
@@ -555,6 +561,12 @@ packages:
     resolution: {integrity: sha512-2k1xCIDVaqtQ4b0mNUbr22JyPR2EnA/o3FsHf6sT53+5FIK+yzDC17gGopUJ3ikCvvverZ/83phmno0t4KFwUw==}
     engines: {node: '>= 10'}
     hasBin: true
+
+  '@tauri-apps/plugin-dialog@2.7.3':
+    resolution: {integrity: sha512-CRgE+7TP4tvq9MjBU6f04NLTFIqVMLKHk3hAqlhil00ngK9ACTrXPH3oHpKMProxILodd3YjBoKbMwSI4IEcfA==}
+
+  '@tauri-apps/plugin-opener@2.5.5':
+    resolution: {integrity: sha512-xvzGai5aQds8j8R8RsUK/lW6pGG50YgOYIPLzvkqmkwAj7dfySOD7sGtejRzvVdMmv1EQfKVEFh1MvmDp8QR0g==}
 
   '@testing-library/dom@10.4.1':
     resolution: {integrity: sha512-o4PXJQidqJl82ckFaXUeoAW+XysPLauYI43Abki5hABd853iMhitooc6znOnczgbTYmEP6U6/y1ZyKAIsvMKGg==}
@@ -1537,6 +1549,14 @@ snapshots:
       '@tauri-apps/cli-win32-arm64-msvc': 2.8.0
       '@tauri-apps/cli-win32-ia32-msvc': 2.8.0
       '@tauri-apps/cli-win32-x64-msvc': 2.8.0
+
+  '@tauri-apps/plugin-dialog@2.7.3':
+    dependencies:
+      '@tauri-apps/api': 2.11.1
+
+  '@tauri-apps/plugin-opener@2.5.5':
+    dependencies:
+      '@tauri-apps/api': 2.11.1
 
   '@testing-library/dom@10.4.1':
     dependencies:

@@ -1,15 +1,29 @@
-use std::time::Duration;
+use std::{path::PathBuf, time::Duration};
 
 use tauri::State;
 
 use crate::{
     commands::EnvironmentCommandService,
     domain::environment::EnvironmentProfile,
-    services::environment_probe::{probe_environment_runtime, ProbeResult},
+    services::{
+        environment_discovery::{
+            discover_environment_paths as discover_paths, EnvironmentPathDiscovery,
+        },
+        environment_probe::{probe_environment_runtime, ProbeResult},
+    },
 };
 
 const PYTHON_PROBE_TIMEOUT: Duration = Duration::from_secs(8);
 const API_PROBE_TIMEOUT: Duration = Duration::from_secs(2);
+
+#[tauri::command]
+pub async fn discover_environment_paths(
+    comfy_root: PathBuf,
+) -> Result<EnvironmentPathDiscovery, String> {
+    tauri::async_runtime::spawn_blocking(move || discover_paths(&comfy_root))
+        .await
+        .map_err(|error| format!("环境路径识别任务失败：{error}"))
+}
 
 #[tauri::command]
 pub async fn probe_environment(profile: EnvironmentProfile) -> Result<ProbeResult, String> {

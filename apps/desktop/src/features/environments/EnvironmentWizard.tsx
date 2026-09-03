@@ -1,20 +1,37 @@
-import { useState, type ReactNode } from "react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  FolderOpen,
+  HardDrive,
+  Info,
+  LoaderCircle
+} from "lucide-react";
+import { useRef, useState, type ReactNode } from "react";
 
 import { translate, type Locale } from "../../i18n/translate";
-import { EnvironmentActionBar } from "./EnvironmentActionBar";
-import { EnvironmentStatusRail } from "./EnvironmentStatusRail";
-import { EnvironmentStepRail } from "./EnvironmentStepRail";
-import { EnvironmentWorkspace } from "./EnvironmentWorkspace";
 import {
   tauriEnvironmentApi,
   type EnvironmentApi,
+  type EnvironmentPathDiscovery,
   type EnvironmentProfile,
   type EnvironmentRoots,
+  type ProbeDiagnostic,
   type ProbeResult
 } from "./environmentApi";
 import type { RequestState, WizardStep } from "./environmentWizardTypes";
+import {
+  tauriPathActionApi,
+  type PathActionApi
+} from "./pathActionApi";
 
 type RootKey = keyof EnvironmentRoots;
+type EditablePathKey = "python_executable" | RootKey;
+type DiscoveryState =
+  | { status: "idle"; count: 0 }
+  | { status: "loading"; count: 0 }
+  | { status: "success"; count: number }
+  | { status: "empty"; count: 0 }
+  | { status: "error"; count: 0 };
 
 type EnvironmentWizardProps = {
   api?: EnvironmentApi;
@@ -23,6 +40,7 @@ type EnvironmentWizardProps = {
   initialStep?: WizardStep;
   locale?: Locale;
   onSaved?(profile: EnvironmentProfile): void | Promise<void>;
+  pathApi?: PathActionApi;
 };
 
 const rootFields: RootKey[] = [
@@ -37,23 +55,181 @@ export function EnvironmentWizard({
   api = tauriEnvironmentApi,
   initialProbe,
   initialProfile,
-  initialStep = 1,
   locale = "zh-CN",
-  onSaved
+  onSaved,
+  pathApi = tauriPathActionApi
 }: EnvironmentWizardProps) {
-  const [step, setStep] = useState<WizardStep>(initialStep);
   const [profile, setProfile] = useState<EnvironmentProfile>(
     () => initialProfile ?? createEmptyProfile()
   );
   const [probe, setProbe] = useState<ProbeResult | null>(initialProbe ?? null);
   const [requestState, setRequestState] = useState<RequestState>("idle");
   const [requestError, setRequestError] = useState("");
+  const [discoveryState, setDiscoveryState] = useState<DiscoveryState>({
+    status: "idle",
+    count: 0
+  });
+  const [activePathAction, setActivePathAction] = useState<string | null>(null);
+  const manuallyEditedPaths = useRef<Set<EditablePathKey>>(
+    new Set([
+      ...(initialProfile?.python_executable ? ["python_executable" as const] : []),
+      ...rootFields.filter((rootKey) => initialProfile?.roots[rootKey].length)
+    ])
+  );
+  const discoveryRequestId = useRef(0);
+  const activePathActionRef = useRef<string | null>(null);
 
   const hasBlockingDiagnostic =
     probe?.diagnostics.some((diagnostic) => diagnostic.severity === "blocking") ?? true;
-  const canContinueFromBasics =
-    profile.name.trim().length > 0 && profile.comfy_root.trim().length > 0;
   const busy = requestState === "probing" || requestState === "saving";
+
+  function updateProfile(patch: Partial<EnvironmentProfile>) {
+    setProfile((current) => ({ ...current, ...patch }));
+    setProbe(null);
+    setRequestState("idle");
+  }
+
+  function updateRoot(rootKey: RootKey, value: string) {
+    manuallyEditedPaths.current.add(rootKey);
+    const values = value
+      .split(/[;\r\n]+/)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+
+    setProfile((current) => ({
+      ...current,
+      roots: { ...current.roots, [rootKey]: values }
+    }));
+    setProbe(null);
+    setRequestState("idle");
+  }
+
+  async function discoverPaths(rootOverride?: string) {
+    const comfyRoot = (rootOverride ?? profile.comfy_root).trim();
+    if (!comfyRoot) {
+      setDiscoveryState({ status: "idle", count: 0 });
+      return;
+    }
+
+    const requestId = ++discoveryRequestId.current;
+    setDiscoveryState({ status: "loading", count: 0 });
+
+    try {
+      const discovery = await api.discoverEnvironmentPaths(comfyRoot);
+      if (requestId !== discoveryRequestId.current) {
+        return;
+      }
+
+      setProfile((current) => {
+        if (current.comfy_root.trim() !== comfyRoot) {
+          return current;
+        }
+
+        const roots = { ...current.roots };
+        for (const rootKey of rootFields) {
+          if (
+            !manuallyEditedPaths.current.has(rootKey) &&
+            discovery.roots[rootKey].length > 0
+          ) {
+            roots[rootKey] = discovery.roots[rootKey];
+          }
+        }
+
+        return {
+          ...current,
+          python_executable:
+            !manuallyEditedPaths.current.has("python_executable") &&
+            discovery.python_executable
+              ? discovery.python_executable
+              : current.python_executable,
+          roots
+        };
+      });
+      setProbe(null);
+      setRequestState("idle");
+
+      const count = countDiscoveredPaths(discovery);
+      setDiscoveryState(
+        count > 0 ? { status: "success", count } : { status: "empty", count: 0 }
+      );
+    } catch {
+      if (requestId === discoveryRequestId.current) {
+        setDiscoveryState({ status: "error", count: 0 });
+      }
+    }
+  }
+
+  function reportPathActionError(error: unknown) {
+    setRequestError(String(error));
+    setRequestState("error");
+  }
+
+  async function runPathAction(
+    actionId: string,
+    operation: () => Promise<void>
+  ) {
+    if (activePathActionRef.current) {
+      return;
+    }
+
+    activePathActionRef.current = actionId;
+    setActivePathAction(actionId);
+    setRequestError("");
+
+    try {
+      await operation();
+    } catch (error) {
+      reportPathActionError(error);
+    } finally {
+      activePathActionRef.current = null;
+      setActivePathAction(null);
+    }
+  }
+
+  async function selectComfyRoot() {
+    await runPathAction("comfy_root:select", async () => {
+      const selected = await pathApi.selectDirectory(profile.comfy_root);
+      if (!selected) {
+        return;
+      }
+
+      discoveryRequestId.current += 1;
+      setDiscoveryState({ status: "idle", count: 0 });
+      updateProfile({ comfy_root: selected });
+      await discoverPaths(selected);
+    });
+  }
+
+  async function selectPythonExecutable() {
+    await runPathAction("python_executable:select", async () => {
+      const selected = await pathApi.selectPythonExecutable(
+        profile.python_executable ?? undefined
+      );
+      if (!selected) {
+        return;
+      }
+
+      manuallyEditedPaths.current.add("python_executable");
+      updateProfile({ python_executable: selected });
+    });
+  }
+
+  async function selectRoot(rootKey: RootKey) {
+    await runPathAction(`${rootKey}:select`, async () => {
+      const selected = await pathApi.selectDirectory(
+        profile.roots[rootKey][0] ?? profile.comfy_root
+      );
+      if (selected) {
+        updateRoot(rootKey, selected);
+      }
+    });
+  }
+
+  async function openConfiguredPath(actionKey: string, path: string) {
+    await runPathAction(`${actionKey}:open`, async () => {
+      await pathApi.openPath(path);
+    });
+  }
 
   async function runProbe() {
     setRequestState("probing");
@@ -82,197 +258,383 @@ export function EnvironmentWizard({
     }
   }
 
-  function renderCurrentStep() {
-    if (step === 1) {
-      return (
-        <WizardPanel title={translate(locale, "environment.step.1")}>
-          <label>
-            <span>{translate(locale, "environment.name")}</span>
-            <input
-              value={profile.name}
-              onChange={(event) => {
-                setProfile((current) => ({ ...current, name: event.target.value }));
-                setProbe(null);
-              }}
-            />
-          </label>
-          <label>
-            <span>{translate(locale, "environment.comfyRoot")}</span>
-            <input
-              value={profile.comfy_root}
-              onChange={(event) => {
-                setProfile((current) => ({
-                  ...current,
-                  comfy_root: event.target.value
-                }));
-                setProbe(null);
-              }}
-            />
-          </label>
-        </WizardPanel>
-      );
-    }
-
-    if (step === 2) {
-      return (
-        <WizardPanel title={translate(locale, "environment.step.2")}>
-          <label>
-            <span>{translate(locale, "environment.python")}</span>
-            <input
-              value={profile.python_executable ?? ""}
-              onChange={(event) => {
-                setProfile((current) => ({
-                  ...current,
-                  python_executable: event.target.value || null
-                }));
-                setProbe(null);
-              }}
-            />
-          </label>
-          <label>
-            <span>{translate(locale, "environment.apiPort")}</span>
-            <input
-              inputMode="numeric"
-              max="65535"
-              min="1"
-              type="number"
-              value={profile.api?.port ?? ""}
-              onChange={(event) => {
-                const port = Number(event.target.value);
-                setProfile((current) => ({
-                  ...current,
-                  api:
-                    Number.isInteger(port) && port > 0 && port <= 65535
-                      ? { host: "127.0.0.1", port }
-                      : null
-                }));
-                setProbe(null);
-              }}
-            />
-          </label>
-          <p className="field-help">{translate(locale, "environment.apiHelp")}</p>
-        </WizardPanel>
-      );
-    }
-
-    if (step === 3) {
-      return (
-        <WizardPanel title={translate(locale, "environment.step.3")}>
-          <p className="field-help">{translate(locale, "environment.rootsHelp")}</p>
-          <div className="root-fields">
-            {rootFields.map((rootKey) => (
-              <label key={rootKey}>
-                <span>{translate(locale, `environment.root.${rootKey}`)}</span>
-                <textarea
-                  rows={2}
-                  value={profile.roots[rootKey].join("\n")}
-                  onChange={(event) => {
-                    const values = event.target.value
-                      .split(/\r?\n/)
-                      .map((value) => value.trim())
-                      .filter(Boolean);
-                    setProfile((current) => ({
-                      ...current,
-                      roots: { ...current.roots, [rootKey]: values }
-                    }));
-                    setProbe(null);
-                  }}
-                />
-              </label>
-            ))}
-          </div>
-        </WizardPanel>
-      );
-    }
-
-    return (
-      <WizardPanel title={translate(locale, "environment.step.4")}>
-        <dl className="environment-summary">
-          <div>
-            <dt>{translate(locale, "environment.name")}</dt>
-            <dd>{profile.name || "—"}</dd>
-          </div>
-          <div>
-            <dt>{translate(locale, "environment.comfyRoot")}</dt>
-            <dd>{profile.comfy_root || "—"}</dd>
-          </div>
-          <div>
-            <dt>{translate(locale, "environment.python")}</dt>
-            <dd>{profile.python_executable || "—"}</dd>
-          </div>
-        </dl>
-        {hasBlockingDiagnostic ? (
-          <p id="environment-save-status" className="wizard-notice">
-            {probe
-              ? translate(locale, "environment.saveBlocked")
-              : translate(locale, "environment.probeFirst")}
-          </p>
-        ) : null}
-        {requestState === "saved" ? (
-          <p className="wizard-feedback wizard-feedback--success" role="status">
-            {translate(locale, "environment.saved")}
-          </p>
-        ) : null}
-        {requestState === "error" ? (
-          <p className="wizard-feedback wizard-feedback--error" role="alert">
-            {translate(locale, "environment.requestFailed")}: {requestError}
-          </p>
-        ) : null}
-      </WizardPanel>
-    );
-  }
-
   return (
     <section
       aria-label={translate(locale, "environment.title")}
       className="environment-wizard"
     >
-      <EnvironmentWorkspace
-        form={
-          <>
-            <EnvironmentStepRail currentStep={step} locale={locale} />
-            <div data-motion="step-enter" key={step}>
-              {renderCurrentStep()}
-            </div>
-            <EnvironmentActionBar
-              busy={busy}
-              canAdvance={step !== 1 || canContinueFromBasics}
-              canSave={!hasBlockingDiagnostic}
-              locale={locale}
-              requestState={requestState}
-              step={step}
-              onBack={() =>
-                setStep((current) => Math.max(1, current - 1) as WizardStep)
-              }
-              onNext={() =>
-                setStep((current) => Math.min(4, current + 1) as WizardStep)
-              }
-              onProbe={runProbe}
-              onSave={saveEnvironment}
-            />
-          </>
-        }
-        requestState={requestState}
-        status={
-          <EnvironmentStatusRail
-            locale={locale}
-            probe={probe}
-            profile={profile}
-            requestState={requestState}
+      <SettingsBlock title={translate(locale, "environment.section.basics")}>
+        <SettingsField
+          description={translate(locale, "environment.nameHelp")}
+          label={translate(locale, "environment.name")}
+        >
+          <input
+            aria-label={translate(locale, "environment.name")}
+            placeholder={translate(locale, "environment.placeholder.name")}
+            required
+            value={profile.name}
+            onChange={(event) => updateProfile({ name: event.target.value })}
           />
-        }
-        step={step}
-      />
+        </SettingsField>
+        <SettingsField
+          description={translate(locale, "environment.comfyRootHelp")}
+          label={translate(locale, "environment.comfyRoot")}
+        >
+          <PathControl
+            actionKey="comfy_root"
+            activeAction={activePathAction}
+            footer={<DiscoveryMessage locale={locale} state={discoveryState} />}
+            label={translate(locale, "environment.comfyRoot")}
+            locale={locale}
+            openDisabled={!profile.comfy_root.trim()}
+            onOpen={() =>
+              void openConfiguredPath("comfy_root", profile.comfy_root.trim())
+            }
+            onSelect={() => void selectComfyRoot()}
+          >
+            <input
+              aria-label={translate(locale, "environment.comfyRoot")}
+              placeholder={translate(locale, "environment.placeholder.comfyRoot")}
+              required
+              value={profile.comfy_root}
+              onBlur={() => void discoverPaths()}
+              onChange={(event) => {
+                discoveryRequestId.current += 1;
+                setDiscoveryState({ status: "idle", count: 0 });
+                updateProfile({ comfy_root: event.target.value });
+              }}
+            />
+          </PathControl>
+        </SettingsField>
+      </SettingsBlock>
+
+      <SettingsBlock title={translate(locale, "environment.section.runtime")}>
+        <SettingsField
+          description={translate(locale, "environment.pythonHelp")}
+          label={translate(locale, "environment.python")}
+        >
+          <PathControl
+            actionKey="python_executable"
+            activeAction={activePathAction}
+            label={translate(locale, "environment.python")}
+            locale={locale}
+            openDisabled={!profile.python_executable}
+            onOpen={() =>
+              void openConfiguredPath(
+                "python_executable",
+                profile.python_executable ?? ""
+              )
+            }
+            onSelect={() => void selectPythonExecutable()}
+          >
+            <input
+              aria-label={translate(locale, "environment.python")}
+              placeholder={translate(locale, "environment.placeholder.python")}
+              value={profile.python_executable ?? ""}
+              onChange={(event) => {
+                manuallyEditedPaths.current.add("python_executable");
+                updateProfile({ python_executable: event.target.value || null });
+              }}
+            />
+          </PathControl>
+        </SettingsField>
+        <SettingsField
+          description={translate(locale, "environment.apiHelp")}
+          label={translate(locale, "environment.apiPort")}
+        >
+          <input
+            aria-label={translate(locale, "environment.apiPort")}
+            inputMode="numeric"
+            max="65535"
+            min="1"
+            placeholder={translate(locale, "environment.placeholder.apiPort")}
+            type="number"
+            value={profile.api?.port ?? ""}
+            onChange={(event) => {
+              const port = Number(event.target.value);
+              updateProfile({
+                api:
+                  Number.isInteger(port) && port > 0 && port <= 65535
+                    ? { host: "127.0.0.1", port }
+                    : null
+              });
+            }}
+          />
+        </SettingsField>
+      </SettingsBlock>
+
+      <SettingsBlock title={translate(locale, "environment.section.assets")}>
+        {rootFields.map((rootKey) => (
+          <SettingsField
+            description={translate(locale, `environment.rootHelp.${rootKey}`)}
+            key={rootKey}
+            label={translate(locale, `environment.root.${rootKey}`)}
+          >
+            <PathControl
+              actionKey={rootKey}
+              activeAction={activePathAction}
+              label={translate(locale, `environment.root.${rootKey}`)}
+              locale={locale}
+              openDisabled={profile.roots[rootKey].length === 0}
+              onOpen={() =>
+                void openConfiguredPath(
+                  rootKey,
+                  profile.roots[rootKey][0] ?? ""
+                )
+              }
+              onSelect={() => void selectRoot(rootKey)}
+            >
+              <input
+                aria-label={translate(locale, `environment.root.${rootKey}`)}
+                value={profile.roots[rootKey].join("; ")}
+                onChange={(event) => updateRoot(rootKey, event.target.value)}
+              />
+            </PathControl>
+          </SettingsField>
+        ))}
+      </SettingsBlock>
+
+      <SettingsBlock title={translate(locale, "environment.section.actions")}>
+        <div className="settings-row settings-row--diagnostics">
+          <div className="settings-row__main">
+            <strong>{translate(locale, "environment.diagnostics.title")}</strong>
+            <small>
+              {probe
+                ? translate(locale, "environment.diagnostics.complete")
+                : translate(locale, "environment.diagnostics.pending")}
+            </small>
+          </div>
+          <div className="environment-actions">
+            <button
+              className="button-secondary"
+              disabled={busy}
+              type="button"
+              onClick={() => void runProbe()}
+            >
+              {requestState === "probing" ? (
+                <LoaderCircle aria-hidden="true" className="spin" />
+              ) : null}
+              {translate(
+                locale,
+                requestState === "probing" ? "environment.probing" : "environment.probe"
+              )}
+            </button>
+            <button
+              disabled={busy || hasBlockingDiagnostic}
+              type="button"
+              onClick={() => void saveEnvironment()}
+            >
+              {requestState === "saving" ? (
+                <LoaderCircle aria-hidden="true" className="spin" />
+              ) : null}
+              {translate(
+                locale,
+                requestState === "saving" ? "environment.saving" : "environment.save"
+              )}
+            </button>
+          </div>
+        </div>
+
+        <DiagnosticResults
+          diagnostics={probe?.diagnostics ?? []}
+          locale={locale}
+          requestError={requestError}
+          requestState={requestState}
+        />
+      </SettingsBlock>
     </section>
   );
 }
 
-function WizardPanel({ children, title }: { children: ReactNode; title: string }) {
+function SettingsBlock({ children, title }: { children: ReactNode; title: string }) {
   return (
-    <div className="wizard-panel">
-      <h2>{title}</h2>
-      {children}
+    <>
+      <div className="settings-section-label">{title}</div>
+      <article className="settings-group">{children}</article>
+    </>
+  );
+}
+
+function SettingsField({
+  children,
+  description,
+  label
+}: {
+  children: ReactNode;
+  description: string;
+  label: string;
+}) {
+  return (
+    <div className="settings-row">
+      <div className="settings-row__main">
+        <strong>{label}</strong>
+        <small>{description}</small>
+      </div>
+      <div className="settings-row__control">{children}</div>
     </div>
+  );
+}
+
+function PathControl({
+  actionKey,
+  activeAction,
+  children,
+  footer,
+  label,
+  locale,
+  onOpen,
+  onSelect,
+  openDisabled
+}: {
+  actionKey: string;
+  activeAction: string | null;
+  children: ReactNode;
+  footer?: ReactNode;
+  label: string;
+  locale: Locale;
+  onOpen(): void;
+  onSelect(): void;
+  openDisabled: boolean;
+}) {
+  const selectActionId = `${actionKey}:select`;
+  const openActionId = `${actionKey}:open`;
+  const selectBusy = activeAction === selectActionId;
+  const openBusy = activeAction === openActionId;
+  const pathActionPending = activeAction !== null;
+
+  return (
+    <div className="path-control">
+      <div className="path-control__row">
+        {children}
+        <div className="path-control__actions">
+          <button
+            aria-label={`${
+              selectBusy
+                ? translate(locale, "common.selecting")
+                : translate(locale, "common.selectPath")
+            } ${label}`}
+            className="path-control__button"
+            disabled={pathActionPending}
+            type="button"
+            onClick={onSelect}
+          >
+            {selectBusy ? (
+              <LoaderCircle aria-hidden="true" className="spin" />
+            ) : (
+              <FolderOpen aria-hidden="true" />
+            )}
+            {translate(
+              locale,
+              selectBusy ? "common.selecting" : "common.selectPath"
+            )}
+          </button>
+          <button
+            aria-label={`${
+              openBusy
+                ? translate(locale, "common.opening")
+                : translate(locale, "common.open")
+            } ${label}`}
+            className="path-control__button"
+            disabled={openDisabled || pathActionPending}
+            type="button"
+            onClick={onOpen}
+          >
+            {openBusy ? (
+              <LoaderCircle aria-hidden="true" className="spin" />
+            ) : (
+              <HardDrive aria-hidden="true" />
+            )}
+            {translate(locale, openBusy ? "common.opening" : "common.open")}
+          </button>
+        </div>
+      </div>
+      {footer}
+    </div>
+  );
+}
+
+function DiscoveryMessage({
+  locale,
+  state
+}: {
+  locale: Locale;
+  state: DiscoveryState;
+}) {
+  if (state.status === "idle") {
+    return null;
+  }
+
+  let message = translate(locale, `environment.discovery.${state.status}`);
+  if (state.status === "success") {
+    message = message.replace("{count}", String(state.count));
+  }
+
+  return (
+    <small aria-live="polite" className="environment-discovery-note" role="status">
+      {state.status === "loading" ? (
+        <LoaderCircle aria-hidden="true" className="spin" />
+      ) : null}
+      {message}
+    </small>
+  );
+}
+
+function DiagnosticResults({
+  diagnostics,
+  locale,
+  requestError,
+  requestState
+}: {
+  diagnostics: ProbeDiagnostic[];
+  locale: Locale;
+  requestError: string;
+  requestState: RequestState;
+}) {
+  if (requestState === "saved") {
+    return (
+      <div className="environment-feedback environment-feedback--success" role="status">
+        <CheckCircle2 aria-hidden="true" />
+        <span>{translate(locale, "environment.saved")}</span>
+      </div>
+    );
+  }
+
+  if (requestState === "error") {
+    return (
+      <div className="environment-feedback environment-feedback--error" role="alert">
+        <AlertCircle aria-hidden="true" />
+        <span>
+          {translate(locale, "environment.requestFailed")}: {requestError}
+        </span>
+      </div>
+    );
+  }
+
+  if (diagnostics.length === 0) {
+    return (
+      <div className="environment-feedback">
+        <Info aria-hidden="true" />
+        <span>{translate(locale, "environment.diagnostics.pending")}</span>
+      </div>
+    );
+  }
+
+  return (
+    <ul className="diagnostic-list">
+      {diagnostics.map((diagnostic) => (
+        <li data-severity={diagnostic.severity} key={`${diagnostic.code}-${diagnostic.message}`}>
+          {diagnostic.severity === "blocking" ? (
+            <AlertCircle aria-hidden="true" />
+          ) : (
+            <CheckCircle2 aria-hidden="true" />
+          )}
+          <span>
+            <strong>{diagnostic.message}</strong>
+            {diagnostic.evidence ? <small>{diagnostic.evidence}</small> : null}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -294,4 +656,14 @@ function createEmptyProfile(): EnvironmentProfile {
     },
     last_validated_at: null
   };
+}
+
+function countDiscoveredPaths(discovery: EnvironmentPathDiscovery): number {
+  return (
+    (discovery.python_executable ? 1 : 0) +
+    rootFields.reduce(
+      (count, rootKey) => count + discovery.roots[rootKey].length,
+      0
+    )
+  );
 }

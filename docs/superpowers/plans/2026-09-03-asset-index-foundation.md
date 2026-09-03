@@ -468,8 +468,8 @@ $env:Path="$env:USERPROFILE\.cargo\bin;$env:Path"
 cargo fmt --check
 cargo clippy -p comfyneko-core --all-targets -- -D warnings
 cargo test -p comfyneko-core
-$env:COMFYNEKO_SMOKE_ROOT='D:\AIGC\ComfyUI Installs\ComfyUI_Company\ComfyUI'
-$env:COMFYNEKO_SMOKE_PYTHON='D:\AIGC\ComfyUI Installs\ComfyUI_Company\standalone-env\python.exe'
+$env:COMFYNEKO_SMOKE_ROOT='<COMFYUI_ROOT>'
+$env:COMFYNEKO_SMOKE_PYTHON='<COMFYUI_ROOT>\.venv\Scripts\python.exe'
 cargo test -p comfyneko-core --test live_environment -- --ignored --nocapture
 pnpm.cmd --dir apps/desktop exec tauri build --debug --no-bundle
 git diff --check

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { AppShell } from "./AppShell";
 
 describe("AppShell", () => {
-  it("keeps product identity and footer controls in the expanded desktop shell", () => {
+  it("matches the VisionHub sidebar hierarchy without embedded settings forms", () => {
     render(
       <AppShell
         initialPreferences={{
@@ -13,18 +13,21 @@ describe("AppShell", () => {
           theme: "light"
         }}
       >
-        <p>内容</p>
+        {({ page }) => <p>{page}</p>}
       </AppShell>
     );
 
     expect(screen.getByText("ComfyNeko")).toBeInTheDocument();
-    expect(screen.getByText("ComfyUI 资产中枢")).toBeInTheDocument();
-    expect(screen.getByTestId("sidebar-footer")).toContainElement(
-      screen.getByRole("combobox", { name: "外观主题" })
+    expect(screen.getByText("ComfyUI 资产管理器")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "环境管理" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "偏好设置" })).toBeInTheDocument();
+    expect(screen.getByTestId("sidebar-footer")).not.toContainElement(
+      screen.queryByRole("combobox")
     );
+    expect(screen.getByRole("button", { name: "切换为深色模式" })).toBeInTheDocument();
   });
 
-  it("persists a collapsed sidebar and applies the selected dark theme", () => {
+  it("uses an icon rail when collapsed and persists the state", () => {
     window.localStorage.clear();
 
     render(
@@ -32,14 +35,12 @@ describe("AppShell", () => {
         initialPreferences={{
           locale: "zh-CN",
           sidebarCollapsed: false,
-          theme: "dark"
+          theme: "light"
         }}
       >
-        <p>内容</p>
+        {({ page }) => <p>{page}</p>}
       </AppShell>
     );
-
-    expect(document.documentElement).toHaveAttribute("data-theme", "dark");
 
     fireEvent.click(screen.getByRole("button", { name: "收起侧栏" }));
 
@@ -53,28 +54,25 @@ describe("AppShell", () => {
     );
   });
 
-  it("switches the navigation language without restarting", () => {
+  it("switches between environment and preference pages", () => {
     render(
       <AppShell
         initialPreferences={{
           locale: "zh-CN",
           sidebarCollapsed: false,
-          theme: "system"
+          theme: "light"
         }}
       >
-        <p>内容</p>
+        {({ page }) => <p data-testid="active-page">{page}</p>}
       </AppShell>
     );
 
-    fireEvent.change(screen.getByRole("combobox", { name: "语言" }), {
-      target: { value: "en-US" }
-    });
-
-    expect(document.documentElement).toHaveAttribute("lang", "en-US");
-    expect(screen.getByRole("button", { name: "Collapse sidebar" })).toBeInTheDocument();
+    expect(screen.getByTestId("active-page")).toHaveTextContent("environments");
+    fireEvent.click(screen.getByRole("button", { name: "偏好设置" }));
+    expect(screen.getByTestId("active-page")).toHaveTextContent("settings");
   });
 
-  it("switches the page theme from the appearance control", () => {
+  it("toggles the page theme from the compact footer action", () => {
     render(
       <AppShell
         initialPreferences={{
@@ -87,30 +85,7 @@ describe("AppShell", () => {
       </AppShell>
     );
 
-    fireEvent.change(screen.getByRole("combobox", { name: "外观主题" }), {
-      target: { value: "dark" }
-    });
-
+    fireEvent.click(screen.getByRole("button", { name: "切换为深色模式" }));
     expect(document.documentElement).toHaveAttribute("data-theme", "dark");
-  });
-
-  it("passes the active locale into application content", () => {
-    render(
-      <AppShell
-        initialPreferences={{
-          locale: "zh-CN",
-          sidebarCollapsed: false,
-          theme: "system"
-        }}
-      >
-        {(locale) => <p>{locale}</p>}
-      </AppShell>
-    );
-
-    fireEvent.change(screen.getByRole("combobox", { name: "语言" }), {
-      target: { value: "en-US" }
-    });
-
-    expect(screen.getByText("en-US")).toBeInTheDocument();
   });
 });
