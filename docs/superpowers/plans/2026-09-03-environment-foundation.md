@@ -173,7 +173,7 @@ Confirm that unreachable API becomes a warning and no remote host is accepted. D
 
 **Required UI foundation before the wizard:** create the shared theme tokens, locale dictionaries, preference state, collapsible navigation shell, icon tooltip primitive, and sticky page guidance. The wizard must reuse these primitives rather than introducing local colors or hard-coded copy.
 
-- [ ] **Step 1: Write the failing UI test for disabled confirmation**
+- [x] **Step 1: Write the failing UI test for disabled confirmation**
 
 ```tsx
 it("disables save while a blocking diagnostic exists", () => {
@@ -182,7 +182,7 @@ it("disables save while a blocking diagnostic exists", () => {
 });
 ```
 
-- [ ] **Step 2: Run the UI test and confirm failure**
+- [x] **Step 2: Run the UI test and confirm failure**
 
 Run: `pnpm --dir apps/desktop test EnvironmentWizard.test.tsx`
 
