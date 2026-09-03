@@ -81,7 +81,7 @@ Run: `pnpm.cmd --dir apps/desktop build`
 
 Expected: PASS; TypeScript accepts the new domain and dictionaries.
 
-- [ ] **Step 6: Record the verified sub-milestone and commit**
+- [x] **Step 6: Record the verified sub-milestone and commit**
 
 Update the three required project documents, then run `git diff --check`, commit with `feat(env): add safe settings draft domain`, and push the active feature branch to its verified HTTPS remote.
 
