@@ -457,7 +457,7 @@ git commit -m "feat(index): persist incremental asset observations"
 - Consumes: all Task 1-3 verification evidence.
 - Produces: an auditable milestone record and a pushed feature branch.
 
-- [ ] **Step 1: Run the complete project gate**
+- [x] **Step 1: Run the complete project gate**
 
 Run:
 
@@ -477,7 +477,7 @@ git diff --check
 
 Expected: frontend tests pass, Vite and Tauri builds exit `0`, Rust tests pass with no Clippy warnings, live smoke reports `valid=[]`, `PYTHON_NOT_FOUND`, and `API_UNREACHABLE`, and the bound-root snapshot remains equal.
 
-- [ ] **Step 2: Update milestone records**
+- [x] **Step 2: Update milestone records**
 
 Record:
 
@@ -490,11 +490,11 @@ Record:
 
 Mark M1.4 complete in `docs/06-开发路线与GitHub推送规范.md`. Add M2.1 as completed while keeping the broader M2 milestone open.
 
-- [ ] **Step 3: Create ignored verification evidence**
+- [x] **Step 3: Create ignored verification evidence**
 
 Write `outputs/asset-index-foundation/verification.md` with the branch, commands, outcomes, Tauri binary path, binary size, SHA256, and the statement that no Computer Use or source-file mutation was used.
 
-- [ ] **Step 4: Commit and push the milestone**
+- [x] **Step 4: Commit and push the milestone**
 
 ```powershell
 git add README.md apps/desktop/src-tauri docs
@@ -502,7 +502,7 @@ git commit -m "feat(index): add read-only incremental asset foundation"
 git push origin feat/asset-index-foundation
 ```
 
-- [ ] **Step 5: Verify remote synchronization**
+- [x] **Step 5: Verify remote synchronization**
 
 Run:
 
