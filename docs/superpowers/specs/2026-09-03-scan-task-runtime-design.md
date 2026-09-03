@@ -34,12 +34,13 @@ Rejected alternatives:
 - Missing-asset marking only after a complete successful full-environment scan.
 - Tauri commands for start, cancel, resume, and job listing.
 - Progress events emitted after committed state changes.
+- A minimal scan-task panel for selecting a saved environment, starting a scan, viewing progress/issues, cancelling, and resuming.
 - Automated tests using temporary directories and SQLite files.
 
 ### Excluded
 
 - An asset-library UI.
-- A scan-task UI beyond APIs and events.
+- Asset grids, previews, model cards, search, tags, or filters.
 - Concurrent workers or parallel scanning.
 - Partial-root scans.
 - Permanent deletion of scan jobs or queue history.
@@ -328,7 +329,38 @@ scan://progress
 
 The payload is the latest serialized `ScanJob`. No file contents, prompts, tokens, or private metadata are emitted.
 
-## 11. Error Handling
+## 11. Minimal Scan Task Panel
+
+Add a real “扫描任务 / Scan tasks” page to the existing desktop shell.
+
+The page contains:
+
+- a saved-environment selector;
+- a primary “开始扫描” action;
+- a task list ordered by latest update;
+- status, completed/queued directory counts, discovered asset count, and issue count;
+- “取消扫描” for a queued or running task;
+- “恢复扫描” for a paused task;
+- loading, empty, error, completed, paused, and failed states;
+- an explicit read-only notice.
+
+The page consumes a dedicated `ScanTaskApi` and listens to `scan://progress`. It reloads persisted jobs when the page opens, so progress remains visible after application restart. All visible copy exists in `zh-CN` and `en-US`.
+
+This is an operational panel, not the final asset-library experience. It reuses the existing solid panels, outlined controls, status colors, responsive breakpoints, reduced-motion behavior, and sidebar tooltip conventions.
+
+## 12. Manual Checkpoints
+
+After every implementation task:
+
+1. run that task's automated checks;
+2. rebuild the Tauri debug executable without an installer;
+3. open the visible ComfyNeko window with `Start-Process`;
+4. report exactly what changed and what the user should test;
+5. pause until the user reports the manual result.
+
+Before the scan-task panel exists, manual checks cover application startup and regression of the environment page. After the panel exists, checks cover its real start/cancel/resume/status behavior. Codex does not use Computer Use; the user operates the window directly.
+
+## 13. Error Handling
 
 - Per-path filesystem failures become `scan_issues` and do not fail the job.
 - Missing or invalid environment IDs reject job creation.
@@ -338,7 +370,7 @@ The payload is the latest serialized `ScanJob`. No file contents, prompts, token
 - Panics are not used for expected filesystem, state, or database failures.
 - Queue claims and directory completion use transactions so restart cannot silently lose pending work.
 
-## 12. Testing
+## 14. Testing
 
 Automated tests must prove:
 
@@ -353,9 +385,11 @@ Automated tests must prove:
 9. a later successful scan restores a previously missing asset to available;
 10. per-path issues do not prevent job completion;
 11. Tauri command adapters expose only saved-environment scans;
-12. existing asset, environment, frontend, live smoke, Clippy, and Tauri build gates remain green.
+12. the scan-task panel renders persisted jobs and invokes start, cancel, and resume correctly;
+13. progress events refresh the visible job state;
+14. existing asset, environment, frontend, live smoke, Clippy, and Tauri build gates remain green.
 
-## 13. Deferred Model Subclassification
+## 15. Deferred Model Subclassification
 
 M2.2 keeps `AssetKind::Model` unchanged.
 
@@ -368,8 +402,8 @@ The following model-specific fields are explicitly deferred to the media/model l
 
 Directory mapping and bounded SafeTensors-header inspection will be designed separately. File extension alone must never be treated as reliable model subtype evidence.
 
-## 14. Delivery Boundary
+## 16. Delivery Boundary
 
-The M2.2 implementation will include migrations, domain types, repository/service code, Tauri commands/events, tests, milestone documentation, and ignored local verification evidence.
+The M2.2 implementation will include migrations, domain types, repository/service code, Tauri commands/events, the minimal scan-task panel, tests, milestone documentation, and ignored local verification evidence.
 
-It will not include an asset UI, scan-task UI, generated databases, user media, caches, model files, or automatic startup scanning.
+It will not include the asset-library UI, generated databases, user media, caches, model files, or automatic startup scanning.
