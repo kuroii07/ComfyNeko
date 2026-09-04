@@ -6,13 +6,16 @@ pub mod services;
 use std::{fs, io};
 
 use commands::{
-    tauri_commands, AssetQueryCommandService, AssetScanCommandService, EnvironmentCommandService,
+    tauri_commands, AssetQueryCommandService, AssetScanCommandService,
+    AssetThumbnailCommandService, EnvironmentCommandService,
 };
 use repositories::{
     asset_repository::AssetRepository, database::AppDatabase,
     environment_repository::EnvironmentRepository,
 };
-use services::asset_scan_service::AssetScanService;
+use services::{
+    asset_scan_service::AssetScanService, asset_thumbnail_service::AssetThumbnailService,
+};
 use tauri::Manager;
 
 pub fn run() {
@@ -21,40 +24,54 @@ pub fn run() {
         .setup(|app| {
             let app_data_dir = app.path().app_local_data_dir()?;
             fs::create_dir_all(&app_data_dir)?;
-            let (environment_commands, asset_scan_commands, asset_query_commands) =
-                tauri::async_runtime::block_on(async {
-                    let database = AppDatabase::connect_file(app_data_dir.join("comfyneko.db"))
+            let thumbnail_cache_root = app_data_dir.join("cache").join("thumbnails");
+            fs::create_dir_all(&thumbnail_cache_root)?;
+            let (
+                environment_commands,
+                asset_scan_commands,
+                asset_query_commands,
+                asset_thumbnail_commands,
+            ) = tauri::async_runtime::block_on(async {
+                let database = AppDatabase::connect_file(app_data_dir.join("comfyneko.db"))
+                    .await
+                    .map_err(|error| error.to_string())?;
+                let environment_repository =
+                    EnvironmentRepository::from_pool(database.pool().clone())
                         .await
                         .map_err(|error| error.to_string())?;
-                    let environment_repository =
-                        EnvironmentRepository::from_pool(database.pool().clone())
-                            .await
-                            .map_err(|error| error.to_string())?;
-                    let environment_commands =
-                        EnvironmentCommandService::new(environment_repository);
-                    let asset_repository = AssetRepository::from_pool(database.pool().clone())
-                        .await
-                        .map_err(|error| error.to_string())?;
-                    let asset_query_commands = AssetQueryCommandService::new(asset_repository);
-                    let scan_service = AssetScanService::from_database(database)
-                        .await
-                        .map_err(|error| error.to_string())?;
-                    let asset_scan_commands = AssetScanCommandService::new(scan_service);
-                    asset_scan_commands
-                        .recover_interrupted()
-                        .await
-                        .map_err(|error| error.message)?;
+                let environment_commands =
+                    EnvironmentCommandService::new(environment_repository.clone());
+                let asset_repository = AssetRepository::from_pool(database.pool().clone())
+                    .await
+                    .map_err(|error| error.to_string())?;
+                let asset_query_commands = AssetQueryCommandService::new(asset_repository.clone());
+                let asset_thumbnail_commands =
+                    AssetThumbnailCommandService::new(AssetThumbnailService::new(
+                        asset_repository,
+                        environment_repository,
+                        thumbnail_cache_root,
+                    ));
+                let scan_service = AssetScanService::from_database(database)
+                    .await
+                    .map_err(|error| error.to_string())?;
+                let asset_scan_commands = AssetScanCommandService::new(scan_service);
+                asset_scan_commands
+                    .recover_interrupted()
+                    .await
+                    .map_err(|error| error.message)?;
 
-                    Ok::<_, String>((
-                        environment_commands,
-                        asset_scan_commands,
-                        asset_query_commands,
-                    ))
-                })
-                .map_err(io::Error::other)?;
+                Ok::<_, String>((
+                    environment_commands,
+                    asset_scan_commands,
+                    asset_query_commands,
+                    asset_thumbnail_commands,
+                ))
+            })
+            .map_err(io::Error::other)?;
             app.manage(environment_commands);
             app.manage(asset_scan_commands);
             app.manage(asset_query_commands);
+            app.manage(asset_thumbnail_commands);
 
             Ok(())
         })
@@ -70,7 +87,8 @@ pub fn run() {
             tauri_commands::list_asset_scan_issues,
             tauri_commands::cancel_asset_scan,
             tauri_commands::resume_asset_scan,
-            tauri_commands::query_assets
+            tauri_commands::query_assets,
+            tauri_commands::get_asset_thumbnail
         ])
         .run(tauri::generate_context!())
         .expect("运行 ComfyNeko 桌面应用失败");
