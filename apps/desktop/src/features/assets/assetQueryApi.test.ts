@@ -37,6 +37,7 @@ describe("tauriAssetQueryApi", () => {
       availability: "present" as const,
       search: "portrait",
       media_only: true as const,
+      sort: "modified_desc" as const,
       page: 1,
       page_size: 50
     };
@@ -56,6 +57,7 @@ describe("tauriAssetQueryApi", () => {
         availability: "present",
         search: "",
         media_only: true,
+        sort: "modified_desc",
         page: 1,
         page_size: 50
       })

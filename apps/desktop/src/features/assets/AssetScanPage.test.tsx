@@ -15,6 +15,7 @@ import type {
 import type {
   AssetListItem,
   AssetPage,
+  AssetQueryRequest,
   AssetQueryApi
 } from "./assetQueryApi";
 import {
@@ -125,6 +126,55 @@ describe("AssetScanPage", () => {
           page: 1,
           page_size: 50
         })
+      )
+    );
+  });
+
+  it("uses newest modification by default and resets pagination when the sort changes", async () => {
+    const asset = createAsset("latest-asset", "image", "latest.png");
+    const query = vi.fn((request: AssetQueryRequest) =>
+      Promise.resolve({
+        items: [asset],
+        page: request.page,
+        page_size: request.page_size,
+        total_items: 51,
+        total_pages: 2
+      })
+    );
+
+    render(
+      <AssetScanPage
+        assetQueryApi={{ query }}
+        environmentApi={createEnvironmentApi([officeEnvironment])}
+        scanApi={createScanApi()}
+      />
+    );
+
+    fireEvent.change(
+      await screen.findByRole("combobox", { name: "扫描环境" }),
+      { target: { value: officeEnvironment.id } }
+    );
+
+    await waitFor(() =>
+      expect(query).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 1, sort: "modified_desc" })
+      )
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "下一页" }));
+    await waitFor(() =>
+      expect(query).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 2, sort: "modified_desc" })
+      )
+    );
+
+    fireEvent.change(screen.getByRole("combobox", { name: "排序方式" }), {
+      target: { value: "path_asc" }
+    });
+
+    await waitFor(() =>
+      expect(query).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 1, sort: "path_asc" })
       )
     );
   });

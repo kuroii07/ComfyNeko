@@ -35,7 +35,8 @@ import {
   type AssetListItem,
   type AssetPage,
   type AssetQueryApi,
-  type AssetRootKind
+  type AssetRootKind,
+  type AssetSort
 } from "./assetQueryApi";
 import { AssetThumbnail } from "./AssetThumbnail";
 import {
@@ -121,6 +122,7 @@ export function AssetScanPage({
   const [rootFilter, setRootFilter] = useState<AssetRootKind | null>(null);
   const [availabilityFilter, setAvailabilityFilter] =
     useState<AssetAvailability | null>("present");
+  const [assetSort, setAssetSort] = useState<AssetSort>("modified_desc");
   const [assetPageNumber, setAssetPageNumber] = useState(1);
   const [scanDetailsOpen, setScanDetailsOpen] = useState(false);
   const selectionGenerationRef = useRef(0);
@@ -311,6 +313,7 @@ export function AssetScanPage({
         availability: availabilityFilter,
         search: deferredSearchQuery,
         media_only: true,
+        sort: assetSort,
         page: assetPageNumber,
         page_size: ASSET_PAGE_SIZE
       })
@@ -337,6 +340,7 @@ export function AssetScanPage({
     assetQueryApi,
     assetQueryRevision,
     availabilityFilter,
+    assetSort,
     deferredSearchQuery,
     kindFilter,
     rootFilter,
@@ -556,33 +560,68 @@ export function AssetScanPage({
           )}
         </div>
 
-        <label className="asset-library__availability">
-          <span className="visually-hidden">
-            {translate(locale, "assets.availability.label")}
-          </span>
-          <select
-            aria-label={translate(locale, "assets.availability.label")}
-            value={availabilityFilter ?? "all"}
-            onChange={(event) => {
-              setAvailabilityFilter(
-                event.target.value === "all"
-                  ? null
-                  : (event.target.value as AssetAvailability)
-              );
-              setAssetPageNumber(1);
-            }}
-          >
-            <option value="all">
-              {translate(locale, "assets.availability.all")}
-            </option>
-            <option value="present">
-              {translate(locale, "assets.availability.present")}
-            </option>
-            <option value="missing">
-              {translate(locale, "assets.availability.missing")}
-            </option>
-          </select>
-        </label>
+        <div className="asset-library__query-controls">
+          <label className="asset-library__sort">
+            <span className="visually-hidden">
+              {translate(locale, "assets.sort.label")}
+            </span>
+            <select
+              aria-label={translate(locale, "assets.sort.label")}
+              value={assetSort}
+              onChange={(event) => {
+                setAssetSort(event.target.value as AssetSort);
+                setAssetPageNumber(1);
+              }}
+            >
+              <option value="modified_desc">
+                {translate(locale, "assets.sort.modifiedDesc")}
+              </option>
+              <option value="modified_asc">
+                {translate(locale, "assets.sort.modifiedAsc")}
+              </option>
+              <option value="path_asc">
+                {translate(locale, "assets.sort.pathAsc")}
+              </option>
+              <option value="path_desc">
+                {translate(locale, "assets.sort.pathDesc")}
+              </option>
+              <option value="size_desc">
+                {translate(locale, "assets.sort.sizeDesc")}
+              </option>
+              <option value="size_asc">
+                {translate(locale, "assets.sort.sizeAsc")}
+              </option>
+            </select>
+          </label>
+
+          <label className="asset-library__availability">
+            <span className="visually-hidden">
+              {translate(locale, "assets.availability.label")}
+            </span>
+            <select
+              aria-label={translate(locale, "assets.availability.label")}
+              value={availabilityFilter ?? "all"}
+              onChange={(event) => {
+                setAvailabilityFilter(
+                  event.target.value === "all"
+                    ? null
+                    : (event.target.value as AssetAvailability)
+                );
+                setAssetPageNumber(1);
+              }}
+            >
+              <option value="all">
+                {translate(locale, "assets.availability.all")}
+              </option>
+              <option value="present">
+                {translate(locale, "assets.availability.present")}
+              </option>
+              <option value="missing">
+                {translate(locale, "assets.availability.missing")}
+              </option>
+            </select>
+          </label>
+        </div>
       </header>
 
       <div className="asset-library__quickbar">

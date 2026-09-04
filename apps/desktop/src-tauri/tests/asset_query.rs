@@ -4,7 +4,9 @@ use chrono::{TimeZone, Utc};
 use comfyneko_core::{
     commands::asset_query_commands::{AssetQueryCommandService, AssetQueryRequest},
     domain::{
-        asset::{AssetAvailability, AssetKind, AssetObservation, AssetQuery, AssetRootKind},
+        asset::{
+            AssetAvailability, AssetKind, AssetObservation, AssetQuery, AssetRootKind, AssetSort,
+        },
         environment::EnvironmentProfile,
     },
     repositories::{
@@ -60,6 +62,7 @@ async fn paginates_assets_in_stable_path_order_and_isolates_environments() {
             availability: None,
             search: None,
             media_only: false,
+            sort: Some(AssetSort::PathAsc),
             page: 1,
             page_size: 2,
         })
@@ -75,6 +78,7 @@ async fn paginates_assets_in_stable_path_order_and_isolates_environments() {
             availability: None,
             search: None,
             media_only: false,
+            sort: Some(AssetSort::PathAsc),
             page: 2,
             page_size: 2,
         })
@@ -105,6 +109,64 @@ async fn paginates_assets_in_stable_path_order_and_isolates_environments() {
         .items
         .iter()
         .all(|item| item.environment_id == fixture.company.id));
+}
+
+#[tokio::test]
+async fn defaults_assets_to_most_recent_file_modification_instead_of_root_path() {
+    let fixture = QueryFixture::new().await;
+    let input_asset = fixture
+        .insert(
+            fixture.company.id,
+            AssetRootKind::Input,
+            AssetKind::Image,
+            r"D:\ComfyUI\input\older-reference.png",
+        )
+        .await;
+    let output_asset = fixture
+        .insert(
+            fixture.company.id,
+            AssetRootKind::Output,
+            AssetKind::Image,
+            r"D:\ComfyUI\output\newer-result.png",
+        )
+        .await;
+    fixture
+        .set_modified_at(
+            input_asset,
+            Utc.with_ymd_and_hms(2026, 9, 4, 8, 0, 0).single().unwrap(),
+        )
+        .await;
+    fixture
+        .set_modified_at(
+            output_asset,
+            Utc.with_ymd_and_hms(2026, 9, 4, 12, 0, 0).single().unwrap(),
+        )
+        .await;
+
+    let page = fixture
+        .assets
+        .query(&AssetQuery {
+            environment_id: fixture.company.id,
+            kind: None,
+            root_kind: None,
+            directory: None,
+            availability: Some(AssetAvailability::Present),
+            search: None,
+            media_only: true,
+            sort: None,
+            page: 1,
+            page_size: 50,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(
+        page.items
+            .iter()
+            .map(|item| item.name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["newer-result.png", "older-reference.png"]
+    );
 }
 
 #[tokio::test]
@@ -146,6 +208,7 @@ async fn combines_kind_root_directory_and_availability_filters() {
             availability: Some(AssetAvailability::Missing),
             search: None,
             media_only: false,
+            sort: None,
             page: 1,
             page_size: 50,
         })
@@ -194,6 +257,7 @@ async fn directory_filter_treats_sql_wildcards_as_literal_path_characters() {
             availability: None,
             search: None,
             media_only: false,
+            sort: None,
             page: 1,
             page_size: 50,
         })
@@ -258,6 +322,7 @@ async fn media_only_query_excludes_models_and_workflows() {
             availability: None,
             search: None,
             media_only: Some(true),
+            sort: None,
             page: Some(1),
             page_size: Some(50),
         })
@@ -294,6 +359,7 @@ async fn command_service_applies_defaults_and_returns_stable_serializable_page()
             availability: Some(AssetAvailability::Present),
             search: Some("portrait".to_owned()),
             media_only: None,
+            sort: None,
             page: None,
             page_size: None,
         })
@@ -323,6 +389,7 @@ async fn command_service_rejects_invalid_ids_and_page_bounds() {
             availability: None,
             search: None,
             media_only: None,
+            sort: None,
             page: None,
             page_size: None,
         })
@@ -337,6 +404,7 @@ async fn command_service_rejects_invalid_ids_and_page_bounds() {
             availability: None,
             search: None,
             media_only: None,
+            sort: None,
             page: Some(0),
             page_size: Some(101),
         })
@@ -379,6 +447,7 @@ async fn search_matches_paths_case_insensitively_and_treats_wildcards_literally(
             availability: Some(AssetAvailability::Present),
             search: Some("portrait_100%".to_owned()),
             media_only: false,
+            sort: None,
             page: 1,
             page_size: 50,
         })
@@ -459,5 +528,14 @@ impl QueryFixture {
         .execute(self.database.pool())
         .await
         .unwrap();
+    }
+
+    async fn set_modified_at(&self, asset_id: Uuid, modified_at: chrono::DateTime<Utc>) {
+        sqlx::query("UPDATE assets SET modified_at = ? WHERE id = ?")
+            .bind(modified_at.to_rfc3339())
+            .bind(asset_id.to_string())
+            .execute(self.database.pool())
+            .await
+            .unwrap();
     }
 }

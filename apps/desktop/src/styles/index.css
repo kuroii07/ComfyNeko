@@ -1304,6 +1304,7 @@ select:focus-visible {
 
 .asset-library__search input,
 .asset-library__scan-controls select,
+.asset-library__sort select,
 .asset-library__availability select {
   height: var(--asset-control-height);
   min-width: 0;
@@ -1328,6 +1329,7 @@ select:focus-visible {
 
 .asset-library__search input:hover,
 .asset-library__scan-controls select:hover:not(:disabled),
+.asset-library__sort select:hover:not(:disabled),
 .asset-library__availability select:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--color-accent) 60%, var(--color-border));
 }
@@ -1431,12 +1433,20 @@ button.asset-library__scan-status {
   color: var(--color-error);
 }
 
+.asset-library__query-controls {
+  display: flex;
+  min-width: 0;
+  gap: 8px;
+}
+
+.asset-library__sort,
 .asset-library__availability {
   min-width: 0;
 }
 
+.asset-library__sort select,
 .asset-library__availability select {
-  width: 112px;
+  width: 120px;
   padding: 0 30px 0 10px;
   border-radius: 8px;
 }
@@ -2693,7 +2703,7 @@ button.asset-library__scan-status {
     justify-content: flex-start;
   }
 
-  .asset-library__availability {
+  .asset-library__query-controls {
     grid-area: availability;
   }
 
@@ -2722,6 +2732,12 @@ button.asset-library__scan-status {
     flex: 1 1 150px;
   }
 
+  .asset-library__query-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .asset-library__sort select,
   .asset-library__availability select {
     width: 100%;
   }
@@ -2792,6 +2808,10 @@ button.asset-library__scan-status {
 
   .asset-library__scan-controls {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .asset-library__query-controls {
     grid-template-columns: minmax(0, 1fr);
   }
 

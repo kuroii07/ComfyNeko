@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::domain::asset::{
     AssetAvailability, AssetKind, AssetListItem, AssetObservation, AssetPage, AssetQuery,
-    AssetRecord, AssetRootKind, AssetUpsertOutcome,
+    AssetRecord, AssetRootKind, AssetSort, AssetUpsertOutcome,
 };
 
 use super::{database::AppDatabase, migrations};
@@ -137,6 +137,7 @@ impl AssetRepository {
             .map(|(windows, unix)| (Some(String::new()), Some(windows), Some(unix)))
             .unwrap_or((None, None, None));
         let search_pattern = query.search.as_deref().map(search_pattern).transpose()?;
+        let order_by = asset_order_by(query.sort.unwrap_or_default());
         let mut transaction = self
             .pool
             .begin()
@@ -183,7 +184,7 @@ impl AssetRepository {
         let limit = i64::from(query.page_size);
         let offset = i64::try_from(offset).map_err(AssetRepositoryError::data)?;
 
-        let rows = sqlx::query(
+        let asset_query = format!(
             r#"
             SELECT id, environment_id, root_kind, kind, normalized_path, size_bytes,
                    modified_at, fingerprint, indexed_at, last_seen_at, is_present,
@@ -200,28 +201,29 @@ impl AssetRepository {
                     OR normalized_path COLLATE NOCASE LIKE ? ESCAPE '!'
               )
               AND (? IS NULL OR normalized_path COLLATE NOCASE LIKE ? ESCAPE '!')
-            ORDER BY normalized_path COLLATE NOCASE ASC, normalized_path ASC, id ASC
+            ORDER BY {order_by}
             LIMIT ? OFFSET ?
             "#,
-        )
-        .bind(environment_id)
-        .bind(&kind)
-        .bind(&kind)
-        .bind(query.media_only)
-        .bind(&root_kind)
-        .bind(&root_kind)
-        .bind(availability)
-        .bind(availability)
-        .bind(directory_marker)
-        .bind(windows_pattern)
-        .bind(unix_pattern)
-        .bind(&search_pattern)
-        .bind(&search_pattern)
-        .bind(limit)
-        .bind(offset)
-        .fetch_all(&mut *transaction)
-        .await
-        .map_err(AssetRepositoryError::database)?;
+        );
+        let rows = sqlx::query(&asset_query)
+            .bind(environment_id)
+            .bind(&kind)
+            .bind(&kind)
+            .bind(query.media_only)
+            .bind(&root_kind)
+            .bind(&root_kind)
+            .bind(availability)
+            .bind(availability)
+            .bind(directory_marker)
+            .bind(windows_pattern)
+            .bind(unix_pattern)
+            .bind(&search_pattern)
+            .bind(&search_pattern)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&mut *transaction)
+            .await
+            .map_err(AssetRepositoryError::database)?;
         transaction
             .commit()
             .await
@@ -243,6 +245,25 @@ impl AssetRepository {
             total_items,
             total_pages,
         })
+    }
+}
+
+fn asset_order_by(sort: AssetSort) -> &'static str {
+    match sort {
+        AssetSort::ModifiedDesc => {
+            "modified_at IS NULL ASC, modified_at DESC, indexed_at DESC, normalized_path COLLATE NOCASE ASC, normalized_path ASC, id ASC"
+        }
+        AssetSort::ModifiedAsc => {
+            "modified_at IS NULL ASC, modified_at ASC, indexed_at ASC, normalized_path COLLATE NOCASE ASC, normalized_path ASC, id ASC"
+        }
+        AssetSort::PathAsc => "normalized_path COLLATE NOCASE ASC, normalized_path ASC, id ASC",
+        AssetSort::PathDesc => "normalized_path COLLATE NOCASE DESC, normalized_path DESC, id DESC",
+        AssetSort::SizeDesc => {
+            "size_bytes DESC, normalized_path COLLATE NOCASE ASC, normalized_path ASC, id ASC"
+        }
+        AssetSort::SizeAsc => {
+            "size_bytes ASC, normalized_path COLLATE NOCASE ASC, normalized_path ASC, id ASC"
+        }
     }
 }
 

@@ -3,6 +3,13 @@ import { invoke } from "@tauri-apps/api/core";
 export type AssetKind = "image" | "video" | "audio" | "model" | "workflow";
 export type AssetRootKind = "input" | "output" | "models" | "workflows";
 export type AssetAvailability = "present" | "missing";
+export type AssetSort =
+  | "modified_desc"
+  | "modified_asc"
+  | "path_asc"
+  | "path_desc"
+  | "size_desc"
+  | "size_asc";
 
 export type AssetListItem = {
   id: string;
@@ -37,6 +44,7 @@ export type AssetQueryRequest = {
   availability: AssetAvailability | null;
   search: string;
   media_only: true;
+  sort: AssetSort;
   page: number;
   page_size: number;
 };

@@ -91,6 +91,18 @@ impl AssetAvailability {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AssetSort {
+    #[default]
+    ModifiedDesc,
+    ModifiedAsc,
+    PathAsc,
+    PathDesc,
+    SizeDesc,
+    SizeAsc,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AssetScanRoot {
     pub kind: AssetRootKind,
@@ -124,6 +136,7 @@ pub struct AssetQuery {
     pub availability: Option<AssetAvailability>,
     pub search: Option<String>,
     pub media_only: bool,
+    pub sort: Option<AssetSort>,
     pub page: u32,
     pub page_size: u32,
 }

@@ -4,7 +4,9 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    domain::asset::{AssetAvailability, AssetKind, AssetPage, AssetQuery, AssetRootKind},
+    domain::asset::{
+        AssetAvailability, AssetKind, AssetPage, AssetQuery, AssetRootKind, AssetSort,
+    },
     repositories::asset_repository::AssetRepository,
 };
 
@@ -28,6 +30,7 @@ pub struct AssetQueryRequest {
     pub availability: Option<AssetAvailability>,
     pub search: Option<String>,
     pub media_only: Option<bool>,
+    pub sort: Option<AssetSort>,
     pub page: Option<u32>,
     pub page_size: Option<u32>,
 }
@@ -86,6 +89,7 @@ impl AssetQueryCommandService {
                 availability: request.availability,
                 search,
                 media_only: request.media_only.unwrap_or(false),
+                sort: request.sort,
                 page,
                 page_size,
             })
