@@ -1,6 +1,7 @@
 pub mod api_probe;
 pub mod asset_detail_service;
 pub mod asset_discovery;
+pub mod asset_preview_service;
 pub mod asset_scan_service;
 pub mod asset_thumbnail_service;
 pub mod environment_discovery;

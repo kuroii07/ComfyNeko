@@ -18,6 +18,7 @@ import type {
   AssetQueryRequest,
   AssetQueryApi
 } from "./assetQueryApi";
+import type { AssetDetail } from "./assetDetailApi";
 import {
   type AssetScanApi,
   type AssetScanIssue,
@@ -177,6 +178,150 @@ describe("AssetScanPage", () => {
         expect.objectContaining({ page: 1, sort: "path_asc" })
       )
     );
+  });
+
+  it("loads the selected image detail into the inspector", async () => {
+    const asset = createAsset("detail-asset", "image", "detail-card.png");
+    const detailApi = {
+      get: vi.fn().mockResolvedValue({
+        asset,
+        metadata: {
+          state: "available",
+          source: "png_metadata",
+          prompt_text: '{"1":{"inputs":{"text":"cat"}}}',
+          workflow_text: '{"last_node_id":1}',
+          parsed_at: "2026-09-04T10:05:00Z"
+        }
+      })
+    };
+
+    render(
+      <AssetScanPage
+        assetDetailApi={detailApi}
+        assetQueryApi={createQueryApi({
+          items: [asset],
+          page: 1,
+          page_size: 50,
+          total_items: 1,
+          total_pages: 1
+        })}
+        environmentApi={createEnvironmentApi([officeEnvironment])}
+        scanApi={createScanApi()}
+      />
+    );
+
+    await screen.findByRole("combobox", { name: "扫描环境" });
+    const browserBody = screen.getByTestId("asset-browser-body");
+    expect(browserBody).not.toHaveAttribute("data-detail-open", "true");
+    expect(
+      screen.queryByRole("complementary", { name: "资产详情" })
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(
+      await screen.findByRole("combobox", { name: "扫描环境" }),
+      { target: { value: officeEnvironment.id } }
+    );
+    const card = await screen.findByRole("option", {
+      name: /detail-card\.png/
+    });
+    expect(card).toHaveAttribute("aria-selected", "false");
+    fireEvent.click(card);
+    expect(card).toHaveAttribute("aria-selected", "true");
+
+    await waitFor(() => expect(detailApi.get).toHaveBeenCalledWith(asset.id));
+    expect(await screen.findByText("PNG metadata")).toBeInTheDocument();
+    expect(screen.getByText(/"text": "cat"/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("complementary", { name: "资产详情" })
+    ).toBeInTheDocument();
+    expect(browserBody).toHaveAttribute("data-detail-open", "true");
+    fireEvent.click(screen.getByRole("button", { name: "关闭详情" }));
+    expect(browserBody).not.toHaveAttribute("data-detail-open", "true");
+    expect(
+      screen.queryByRole("complementary", { name: "资产详情" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("closes the detail drawer with Escape without clearing the asset list", async () => {
+    const asset = createAsset("escape-detail", "image", "escape.png");
+    const detailApi = {
+      get: vi.fn().mockResolvedValue({ asset, metadata: null })
+    };
+
+    render(
+      <AssetScanPage
+        assetDetailApi={detailApi}
+        assetQueryApi={createQueryApi({
+          items: [asset],
+          page: 1,
+          page_size: 50,
+          total_items: 1,
+          total_pages: 1
+        })}
+        environmentApi={createEnvironmentApi([officeEnvironment])}
+        scanApi={createScanApi()}
+      />
+    );
+
+    fireEvent.change(
+      await screen.findByRole("combobox", { name: "扫描环境" }),
+      { target: { value: officeEnvironment.id } }
+    );
+    fireEvent.click(await screen.findByRole("option", { name: /escape\.png/ }));
+    expect(await screen.findByText("文件信息")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(
+      screen.queryByRole("complementary", { name: "资产详情" })
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("escape.png")).toBeInTheDocument();
+  });
+
+  it("keeps the newest asset detail when an earlier request resolves late", async () => {
+    const firstAsset = createAsset("detail-first", "image", "first.png");
+    const secondAsset = createAsset("detail-second", "image", "second.png");
+    const firstRequest = deferred<AssetDetail | null>();
+    const secondRequest = deferred<AssetDetail | null>();
+    const detailApi = {
+      get: vi.fn((assetId: string) =>
+        assetId === firstAsset.id ? firstRequest.promise : secondRequest.promise
+      )
+    };
+
+    render(
+      <AssetScanPage
+        assetDetailApi={detailApi}
+        assetQueryApi={createQueryApi({
+          items: [firstAsset, secondAsset],
+          page: 1,
+          page_size: 50,
+          total_items: 2,
+          total_pages: 1
+        })}
+        environmentApi={createEnvironmentApi([officeEnvironment])}
+        scanApi={createScanApi()}
+      />
+    );
+
+    fireEvent.change(
+      await screen.findByRole("combobox", { name: "扫描环境" }),
+      { target: { value: officeEnvironment.id } }
+    );
+    fireEvent.click(await screen.findByRole("option", { name: /first\.png/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /second\.png/ }));
+
+    await act(async () => {
+      secondRequest.resolve(createAssetDetail(secondAsset, "dog"));
+      await secondRequest.promise;
+    });
+    expect(await screen.findByText(/"text": "dog"/)).toBeInTheDocument();
+
+    await act(async () => {
+      firstRequest.resolve(createAssetDetail(firstAsset, "cat"));
+      await firstRequest.promise;
+    });
+    expect(screen.queryByText(/"text": "cat"/)).not.toBeInTheDocument();
+    expect(screen.getByText(/"text": "dog"/)).toBeInTheDocument();
   });
 
   it("requests thumbnails only for image cards and keeps media placeholders", async () => {
@@ -682,6 +827,19 @@ function createAsset(
     last_seen_at: "2026-09-04T10:00:01Z",
     availability: "present",
     missing_since: null
+  };
+}
+
+function createAssetDetail(asset: AssetListItem, text: string): AssetDetail {
+  return {
+    asset,
+    metadata: {
+      state: "available",
+      source: "png_metadata",
+      prompt_text: JSON.stringify({ 1: { inputs: { text } } }),
+      workflow_text: "{\"last_node_id\":1}",
+      parsed_at: "2026-09-04T10:05:00Z"
+    }
   };
 }
 

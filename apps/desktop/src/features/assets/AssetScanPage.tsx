@@ -39,6 +39,13 @@ import {
   type AssetSort
 } from "./assetQueryApi";
 import { AssetThumbnail } from "./AssetThumbnail";
+import { AssetDetailInspector } from "./AssetDetailInspector";
+import {
+  tauriAssetDetailApi,
+  type AssetDetail,
+  type AssetDetailApi,
+  type AssetDetailLoadState
+} from "./assetDetailApi";
 import {
   tauriAssetScanApi,
   type AssetScanApi,
@@ -50,12 +57,20 @@ import {
   tauriAssetThumbnailApi,
   type AssetThumbnailApi
 } from "./assetThumbnailApi";
+import {
+  tauriAssetPreviewApi,
+  type AssetPreviewApi,
+  type AssetPreviewState
+} from "./assetPreviewApi";
+import { AssetPreviewDialog } from "./AssetPreviewDialog";
 
 type AssetScanPageProps = {
+  assetDetailApi?: AssetDetailApi;
   assetQueryApi?: AssetQueryApi;
   environmentApi?: EnvironmentApi;
   locale?: Locale;
   onOpenEnvironments?(): void;
+  previewApi?: AssetPreviewApi;
   scanApi?: AssetScanApi;
   thumbnailApi?: AssetThumbnailApi;
 };
@@ -91,10 +106,12 @@ const rootFilters: Array<{
 ];
 
 export function AssetScanPage({
+  assetDetailApi = tauriAssetDetailApi,
   assetQueryApi = tauriAssetQueryApi,
   environmentApi = tauriEnvironmentApi,
   locale = "zh-CN",
   onOpenEnvironments,
+  previewApi = tauriAssetPreviewApi,
   scanApi = tauriAssetScanApi,
   thumbnailApi = tauriAssetThumbnailApi
 }: AssetScanPageProps) {
@@ -124,7 +141,20 @@ export function AssetScanPage({
     useState<AssetAvailability | null>("present");
   const [assetSort, setAssetSort] = useState<AssetSort>("modified_desc");
   const [assetPageNumber, setAssetPageNumber] = useState(1);
+  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  const [assetDetail, setAssetDetail] = useState<AssetDetail | null>(null);
+  const [assetDetailState, setAssetDetailState] =
+    useState<AssetDetailLoadState>("unselected");
+  const [assetDetailError, setAssetDetailError] = useState<string | null>(
+    null
+  );
+  const [assetDetailOpen, setAssetDetailOpen] = useState(false);
+  const [previewAsset, setPreviewAsset] = useState<AssetListItem | null>(null);
+  const [previewState, setPreviewState] = useState<AssetPreviewState>("unavailable");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const previewRequestGenerationRef = useRef(0);
   const [scanDetailsOpen, setScanDetailsOpen] = useState(false);
+  const assetDetailRequestGenerationRef = useRef(0);
   const selectionGenerationRef = useRef(0);
   const pollGenerationRef = useRef(0);
   const deferredSearchQuery = useDeferredValue(searchQuery);
@@ -293,6 +323,26 @@ export function AssetScanPage({
   }, [selectedEnvironmentId]);
 
   useEffect(() => {
+    assetDetailRequestGenerationRef.current += 1;
+    setSelectedAssetId(null);
+    setAssetDetail(null);
+    setAssetDetailState("unselected");
+    setAssetDetailError(null);
+    setAssetDetailOpen(false);
+    previewRequestGenerationRef.current += 1;
+    setPreviewAsset(null);
+    setPreviewUrl(null);
+  }, [
+    assetPageNumber,
+    assetSort,
+    availabilityFilter,
+    deferredSearchQuery,
+    kindFilter,
+    rootFilter,
+    selectedEnvironmentId
+  ]);
+
+  useEffect(() => {
     let active = true;
 
     if (!selectedEnvironmentId) {
@@ -400,6 +450,63 @@ export function AssetScanPage({
       void runAction("resume", () => scanApi.resume(task.id));
     }
   }
+
+  function selectAsset(asset: AssetListItem) {
+    const generation = ++assetDetailRequestGenerationRef.current;
+    setSelectedAssetId(asset.id);
+    setAssetDetailOpen(true);
+    setAssetDetail(null);
+    setAssetDetailError(null);
+    setAssetDetailState("loading");
+
+    void assetDetailApi
+      .get(asset.id)
+      .then((detail) => {
+        if (generation !== assetDetailRequestGenerationRef.current) {
+          return;
+        }
+        setAssetDetail(detail);
+        setAssetDetailState("ready");
+      })
+      .catch((error) => {
+        if (generation !== assetDetailRequestGenerationRef.current) {
+          return;
+        }
+        setAssetDetailError(toErrorMessage(error));
+        setAssetDetailState("error");
+      });
+  }
+
+  function openPreview(asset: AssetListItem) {
+    const generation = ++previewRequestGenerationRef.current;
+    setPreviewAsset(asset);
+    setPreviewState("unavailable");
+    setPreviewUrl(null);
+    void previewApi.get(asset.id).then((preview) => {
+      if (generation !== previewRequestGenerationRef.current) return;
+      setPreviewState(preview.state);
+      setPreviewUrl(preview.sourceUrl);
+    }).catch(() => {
+      if (generation !== previewRequestGenerationRef.current) return;
+      setPreviewState("unavailable");
+      setPreviewUrl(null);
+    });
+  }
+
+  useEffect(() => {
+    if (!assetDetailOpen) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setAssetDetailOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [assetDetailOpen]);
 
   if (environmentLoadState === "loading") {
     return (
@@ -672,7 +779,11 @@ export function AssetScanPage({
         </div>
       ) : null}
 
-      <div className="asset-library__body">
+      <div
+        className="asset-library__body"
+        data-detail-open={assetDetailOpen || undefined}
+        data-testid="asset-browser-body"
+      >
         <nav
           aria-label={translate(locale, "assets.category.label")}
           className="asset-library__categories"
@@ -703,8 +814,10 @@ export function AssetScanPage({
             error={assetRequestError}
             loadState={assetLoadState}
             locale={locale}
+            selectedAssetId={selectedAssetId}
             selectedEnvironmentId={selectedEnvironmentId}
             thumbnailApi={thumbnailApi}
+            onSelect={selectAsset}
             onNext={() =>
               setAssetPageNumber((current) =>
                 Math.min(current + 1, assetPage.total_pages || 1)
@@ -716,7 +829,30 @@ export function AssetScanPage({
             onRetry={() => setAssetQueryRevision((current) => current + 1)}
           />
         </section>
+        {assetDetailOpen ? (
+          <AssetDetailInspector
+            detail={assetDetail}
+            error={assetDetailError}
+            locale={locale}
+            state={assetDetailState}
+            onClose={() => setAssetDetailOpen(false)}
+            onPreview={openPreview}
+          />
+        ) : null}
       </div>
+      {previewAsset ? (
+        <AssetPreviewDialog
+          assetName={previewAsset.name}
+          locale={locale}
+          previewUrl={previewUrl}
+          state={previewState}
+          onClose={() => {
+            previewRequestGenerationRef.current += 1;
+            setPreviewAsset(null);
+            setPreviewUrl(null);
+          }}
+        />
+      ) : null}
     </section>
   );
 }
@@ -956,6 +1092,8 @@ function AssetCollection({
   onNext,
   onPrevious,
   onRetry,
+  onSelect,
+  selectedAssetId,
   selectedEnvironmentId,
   thumbnailApi
 }: {
@@ -966,6 +1104,8 @@ function AssetCollection({
   onNext(): void;
   onPrevious(): void;
   onRetry(): void;
+  onSelect(asset: AssetListItem): void;
+  selectedAssetId: string | null;
   selectedEnvironmentId: string;
   thumbnailApi: AssetThumbnailApi;
 }) {
@@ -1026,13 +1166,19 @@ function AssetCollection({
 
   return (
     <>
-      <div className="asset-library__grid" role="list">
+      <div
+        aria-label={translate(locale, "assets.collection")}
+        className="asset-library__grid"
+        role="listbox"
+      >
         {assetPage.items.map((asset) => (
           <AssetCard
             asset={asset}
             key={asset.id}
             locale={locale}
+            selected={selectedAssetId === asset.id}
             thumbnailApi={thumbnailApi}
+            onSelect={onSelect}
           />
         ))}
       </div>
@@ -1071,10 +1217,14 @@ function AssetCollection({
 function AssetCard({
   asset,
   locale,
+  onSelect,
+  selected,
   thumbnailApi
 }: {
   asset: AssetListItem;
   locale: Locale;
+  onSelect(asset: AssetListItem): void;
+  selected: boolean;
   thumbnailApi: AssetThumbnailApi;
 }) {
   const Icon =
@@ -1089,10 +1239,13 @@ function AssetCard({
             : Box;
 
   return (
-    <article
+    <button
+      aria-selected={selected}
       className="asset-card"
       data-availability={asset.availability}
-      role="listitem"
+      role="option"
+      type="button"
+      onClick={() => onSelect(asset)}
     >
       <div className="asset-card__preview">
         <AssetThumbnail
@@ -1118,7 +1271,7 @@ function AssetCard({
       {asset.availability === "missing" ? (
         <small>{translate(locale, "assets.availability.missing")}</small>
       ) : null}
-    </article>
+    </button>
   );
 }
 

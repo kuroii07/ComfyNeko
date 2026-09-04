@@ -6,16 +6,17 @@ pub mod services;
 use std::{fs, io};
 
 use commands::{
-    tauri_commands, AssetDetailCommandService, AssetQueryCommandService, AssetScanCommandService,
-    AssetThumbnailCommandService, EnvironmentCommandService,
+    tauri_commands, AssetDetailCommandService, AssetPreviewCommandService,
+    AssetQueryCommandService, AssetScanCommandService, AssetThumbnailCommandService,
+    EnvironmentCommandService,
 };
 use repositories::{
     asset_metadata_repository::AssetMetadataRepository, asset_repository::AssetRepository,
     database::AppDatabase, environment_repository::EnvironmentRepository,
 };
 use services::{
-    asset_detail_service::AssetDetailService, asset_scan_service::AssetScanService,
-    asset_thumbnail_service::AssetThumbnailService,
+    asset_detail_service::AssetDetailService, asset_preview_service::AssetPreviewService,
+    asset_scan_service::AssetScanService, asset_thumbnail_service::AssetThumbnailService,
 };
 use tauri::Manager;
 
@@ -27,12 +28,15 @@ pub fn run() {
             fs::create_dir_all(&app_data_dir)?;
             let thumbnail_cache_root = app_data_dir.join("cache").join("thumbnails");
             fs::create_dir_all(&thumbnail_cache_root)?;
+            let preview_cache_root = app_data_dir.join("cache").join("previews");
+            fs::create_dir_all(&preview_cache_root)?;
             let (
                 environment_commands,
                 asset_scan_commands,
                 asset_query_commands,
                 asset_thumbnail_commands,
                 asset_detail_commands,
+                asset_preview_commands,
             ) = tauri::async_runtime::block_on(async {
                 let database = AppDatabase::connect_file(app_data_dir.join("comfyneko.db"))
                     .await
@@ -59,9 +63,15 @@ pub fn run() {
                     ));
                 let asset_thumbnail_commands =
                     AssetThumbnailCommandService::new(AssetThumbnailService::new(
-                        asset_repository,
-                        environment_repository,
+                        asset_repository.clone(),
+                        environment_repository.clone(),
                         thumbnail_cache_root,
+                    ));
+                let asset_preview_commands =
+                    AssetPreviewCommandService::new(AssetPreviewService::new(
+                        asset_repository.clone(),
+                        environment_repository.clone(),
+                        preview_cache_root,
                     ));
                 let scan_service = AssetScanService::from_database(database)
                     .await
@@ -78,6 +88,7 @@ pub fn run() {
                     asset_query_commands,
                     asset_thumbnail_commands,
                     asset_detail_commands,
+                    asset_preview_commands,
                 ))
             })
             .map_err(io::Error::other)?;
@@ -86,6 +97,7 @@ pub fn run() {
             app.manage(asset_query_commands);
             app.manage(asset_thumbnail_commands);
             app.manage(asset_detail_commands);
+            app.manage(asset_preview_commands);
 
             Ok(())
         })
@@ -103,7 +115,8 @@ pub fn run() {
             tauri_commands::resume_asset_scan,
             tauri_commands::query_assets,
             tauri_commands::get_asset_thumbnail,
-            tauri_commands::get_asset_detail
+            tauri_commands::get_asset_detail,
+            tauri_commands::get_asset_preview
         ])
         .run(tauri::generate_context!())
         .expect("运行 ComfyNeko 桌面应用失败");
