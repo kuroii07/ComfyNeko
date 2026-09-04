@@ -32,6 +32,7 @@ ComfyNeko 是本地优先的 Windows 桌面软件：连接一套或多套 ComfyU
 - [ComfyNexus 启发式环境设置实施计划](docs/superpowers/plans/2026-09-03-comfynexus-environment-settings.md)
 - [M2.2 后台资产扫描任务设计](docs/superpowers/specs/2026-09-04-asset-scan-task-design.md)
 - [M2.2 后台资产扫描任务实施计划](docs/superpowers/plans/2026-09-04-asset-scan-task.md)
+- [M2.3c 图片缩略图与受控缓存设计](docs/superpowers/specs/2026-09-04-image-thumbnail-cache-design.md)
 
 ## 项目目录
 
