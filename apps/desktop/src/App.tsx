@@ -1,14 +1,15 @@
-import { PageHeader } from "./components/PageHeader";
+import { useState } from "react";
+
+import { AssetScanPage } from "./features/assets/AssetScanPage";
 import { EnvironmentManager } from "./features/environments/EnvironmentManager";
 import { PlannedFeaturePage } from "./features/planned/PlannedFeaturePage";
 import { SettingsPage } from "./features/settings/SettingsPage";
 import { translate, type MessageKey } from "./i18n/translate";
 import { AppShell, type AppPage } from "./shell/AppShell";
 
-type PlannedPage = Exclude<AppPage, "environments" | "settings">;
+type PlannedPage = Exclude<AppPage, "assets" | "environments" | "settings">;
 
 const plannedPageTitleKeys: Record<PlannedPage, MessageKey> = {
-  assets: "navigation.assets",
   home: "navigation.home",
   models: "navigation.models",
   nodes: "navigation.nodes",
@@ -17,9 +18,15 @@ const plannedPageTitleKeys: Record<PlannedPage, MessageKey> = {
 };
 
 export function App() {
+  const [hasUnsavedEnvironmentChanges, setHasUnsavedEnvironmentChanges] =
+    useState(false);
+
   return (
-    <AppShell>
-      {({ locale, page, preferences, updatePreferences }) => {
+    <AppShell
+      hasUnsavedChanges={hasUnsavedEnvironmentChanges}
+      onDiscardUnsavedChanges={() => setHasUnsavedEnvironmentChanges(false)}
+    >
+      {({ locale, navigateTo, page, preferences, updatePreferences }) => {
         if (page === "settings") {
           return (
             <SettingsPage
@@ -32,16 +39,21 @@ export function App() {
 
         if (page === "environments") {
           return (
-            <section className="settings-page environment-page">
-              <PageHeader
-                description={translate(locale, "environment.description")}
-                help={translate(locale, "environment.pageHelp")}
-                keyboardHelp={translate(locale, "environment.keyboardHelp")}
+            <section className="environment-page">
+              <EnvironmentManager
                 locale={locale}
-                title={translate(locale, "environment.settingsTitle")}
+                onDirtyChange={setHasUnsavedEnvironmentChanges}
               />
-              <EnvironmentManager locale={locale} />
             </section>
+          );
+        }
+
+        if (page === "assets") {
+          return (
+            <AssetScanPage
+              locale={locale}
+              onOpenEnvironments={() => navigateTo("environments")}
+            />
           );
         }
 

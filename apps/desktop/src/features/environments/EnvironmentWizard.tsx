@@ -4,9 +4,10 @@ import {
   FolderOpen,
   HardDrive,
   Info,
-  LoaderCircle
+  LoaderCircle,
+  Save
 } from "lucide-react";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { translate, type Locale } from "../../i18n/translate";
 import {
@@ -15,10 +16,12 @@ import {
   type EnvironmentPathDiscovery,
   type EnvironmentProfile,
   type EnvironmentRoots,
-  type ProbeDiagnostic,
   type ProbeResult
 } from "./environmentApi";
-import { EnvironmentSettingsPage } from "./EnvironmentSettingsPage";
+import {
+  EnvironmentSettingsPage,
+  type EnvironmentPageStatus
+} from "./EnvironmentSettingsPage";
 import type { EnvironmentSettingsTab } from "./EnvironmentSettingsTabs";
 import { AccelerationSettings } from "./AccelerationSettings";
 import { EnvironmentVariablesSettings } from "./EnvironmentVariablesSettings";
@@ -26,6 +29,7 @@ import { GeneralEnvironmentSettings } from "./GeneralEnvironmentSettings";
 import { ModelPathSettings } from "./ModelPathSettings";
 import {
   createEnvironmentSettingsDraft,
+  parseEnvironmentVariableDraft,
   type ModelPathCategory
 } from "./environmentSettingsDraft";
 import type { RequestState, WizardStep } from "./environmentWizardTypes";
@@ -53,8 +57,16 @@ type EnvironmentWizardProps = {
   initialProfile?: EnvironmentProfile;
   initialStep?: WizardStep;
   locale?: Locale;
-  onSaved?(profile: EnvironmentProfile): void | Promise<void>;
+  onDirtyChange?(hasUnsavedChanges: boolean): void;
+  onSaved?(
+    profile: EnvironmentProfile
+  ):
+    | EnvironmentProfile
+    | null
+    | void
+    | Promise<EnvironmentProfile | null | void>;
   pathApi?: PathActionApi;
+  profileLibrary?: ReactNode;
 };
 
 const rootFields: RootKey[] = [
@@ -70,8 +82,10 @@ export function EnvironmentWizard({
   initialProbe,
   initialProfile,
   locale = "zh-CN",
+  onDirtyChange,
   onSaved,
-  pathApi = tauriPathActionApi
+  pathApi = tauriPathActionApi,
+  profileLibrary
 }: EnvironmentWizardProps) {
   const [profile, setProfile] = useState<EnvironmentProfile>(
     () => initialProfile ?? createEmptyProfile()
@@ -82,6 +96,8 @@ export function EnvironmentWizard({
   const [settingsDraft, setSettingsDraft] = useState(
     createEnvironmentSettingsDraft
   );
+  const [hasProfileChanges, setHasProfileChanges] = useState(false);
+  const [hasSessionDraftChanges, setHasSessionDraftChanges] = useState(false);
   const [requestState, setRequestState] = useState<RequestState>("idle");
   const [requestError, setRequestError] = useState("");
   const [discoveryState, setDiscoveryState] = useState<DiscoveryState>({
@@ -102,10 +118,29 @@ export function EnvironmentWizard({
 
   const hasBlockingDiagnostic =
     probe?.diagnostics.some((diagnostic) => diagnostic.severity === "blocking") ?? true;
+  const hasInvalidSessionDraft =
+    parseEnvironmentVariableDraft(settingsDraft.variables).errors.length > 0;
   const busy = requestState === "probing" || requestState === "saving";
+  const hasUnsavedChanges = hasProfileChanges || hasSessionDraftChanges;
+  const pageStatus = getPageStatus(
+    profile,
+    probe,
+    requestState,
+    hasSessionDraftChanges,
+    hasInvalidSessionDraft
+  );
+
+  useEffect(() => {
+    onDirtyChange?.(hasUnsavedChanges);
+  }, [hasUnsavedChanges, onDirtyChange]);
 
   function updateProfile(patch: Partial<EnvironmentProfile>) {
-    setProfile((current) => ({ ...current, ...patch }));
+    setProfile((current) => ({
+      ...current,
+      ...patch,
+      last_validated_at: null
+    }));
+    setHasProfileChanges(true);
     setProbe(null);
     setRequestState("idle");
   }
@@ -119,8 +154,10 @@ export function EnvironmentWizard({
 
     setProfile((current) => ({
       ...current,
+      last_validated_at: null,
       roots: { ...current.roots, [rootKey]: values }
     }));
+    setHasProfileChanges(true);
     setProbe(null);
     setRequestState("idle");
   }
@@ -158,6 +195,7 @@ export function EnvironmentWizard({
 
         return {
           ...current,
+          last_validated_at: null,
           python_executable:
             !manuallyEditedPaths.current.has("python_executable") &&
             discovery.python_executable
@@ -166,6 +204,7 @@ export function EnvironmentWizard({
           roots
         };
       });
+      setHasProfileChanges(true);
       setProbe(null);
       setRequestState("idle");
 
@@ -271,7 +310,11 @@ export function EnvironmentWizard({
       const result = await api.saveEnvironment(profile);
       setProbe(result);
       setRequestState("saved");
-      await onSaved?.(profile);
+      const persistedProfile = await onSaved?.(profile);
+      if (persistedProfile) {
+        setProfile(persistedProfile);
+      }
+      setHasProfileChanges(false);
     } catch (error) {
       setRequestError(String(error));
       setRequestState("error");
@@ -280,11 +323,56 @@ export function EnvironmentWizard({
 
   return (
     <EnvironmentSettingsPage
+      actions={
+        <>
+          <button
+            className="button-secondary"
+            disabled={busy}
+            type="button"
+            onClick={() => void runProbe()}
+          >
+            {requestState === "probing" ? (
+              <LoaderCircle aria-hidden="true" className="spin" />
+            ) : (
+              <CheckCircle2 aria-hidden="true" />
+            )}
+            {translate(
+              locale,
+              requestState === "probing" ? "environment.probing" : "environment.probe"
+            )}
+          </button>
+          <button
+            disabled={busy || hasBlockingDiagnostic}
+            type="button"
+            onClick={() => void saveEnvironment()}
+          >
+            {requestState === "saving" ? (
+              <LoaderCircle aria-hidden="true" className="spin" />
+            ) : (
+              <Save aria-hidden="true" />
+            )}
+            {translate(
+              locale,
+              requestState === "saving" ? "environment.saving" : "environment.save"
+            )}
+          </button>
+        </>
+      }
       activeTab={activeSettingsTab}
       locale={locale}
       onTabChange={setActiveSettingsTab}
       profile={profile}
+      status={pageStatus}
     >
+      {requestState === "saved" && hasSessionDraftChanges ? (
+        <div className="environment-feedback environment-feedback--success" role="status">
+          <CheckCircle2 aria-hidden="true" />
+          <span>{translate(locale, "environment.savedWithSessionDraft")}</span>
+        </div>
+      ) : null}
+
+      {profileLibrary}
+
       {activeSettingsTab === "general" ? (
         <GeneralEnvironmentSettings locale={locale}>
         <SettingsBlock title={translate(locale, "environment.section.basics")}>
@@ -398,49 +486,10 @@ export function EnvironmentWizard({
       </SettingsBlock>
 
       <SettingsBlock title={translate(locale, "environment.section.actions")}>
-        <div className="settings-row settings-row--diagnostics">
-          <div className="settings-row__main">
-            <strong>{translate(locale, "environment.diagnostics.title")}</strong>
-            <small>
-              {probe
-                ? translate(locale, "environment.diagnostics.complete")
-                : translate(locale, "environment.diagnostics.pending")}
-            </small>
-          </div>
-          <div className="environment-actions">
-            <button
-              className="button-secondary"
-              disabled={busy}
-              type="button"
-              onClick={() => void runProbe()}
-            >
-              {requestState === "probing" ? (
-                <LoaderCircle aria-hidden="true" className="spin" />
-              ) : null}
-              {translate(
-                locale,
-                requestState === "probing" ? "environment.probing" : "environment.probe"
-              )}
-            </button>
-            <button
-              disabled={busy || hasBlockingDiagnostic}
-              type="button"
-              onClick={() => void saveEnvironment()}
-            >
-              {requestState === "saving" ? (
-                <LoaderCircle aria-hidden="true" className="spin" />
-              ) : null}
-              {translate(
-                locale,
-                requestState === "saving" ? "environment.saving" : "environment.save"
-              )}
-            </button>
-          </div>
-          </div>
-
         <DiagnosticResults
-          diagnostics={probe?.diagnostics ?? []}
+          hasSessionDraftChanges={hasSessionDraftChanges}
           locale={locale}
+          probe={probe}
           requestError={requestError}
           requestState={requestState}
         />
@@ -452,9 +501,10 @@ export function EnvironmentWizard({
         <AccelerationSettings
           acceleration={settingsDraft.acceleration}
           locale={locale}
-          onChange={(acceleration) =>
-            setSettingsDraft((current) => ({ ...current, acceleration }))
-          }
+          onChange={(acceleration) => {
+            setSettingsDraft((current) => ({ ...current, acceleration }));
+            setHasSessionDraftChanges(true);
+          }}
         />
       ) : null}
 
@@ -470,6 +520,7 @@ export function EnvironmentWizard({
                 categories: { ...current.modelPaths.categories, [category]: path }
               }
             }));
+            setHasSessionDraftChanges(true);
           }}
         >
       <SettingsBlock title={translate(locale, "environment.section.assets")}>
@@ -514,9 +565,10 @@ export function EnvironmentWizard({
         <EnvironmentVariablesSettings
           locale={locale}
           value={settingsDraft.variables}
-          onChange={(variables) =>
-            setSettingsDraft((current) => ({ ...current, variables }))
-          }
+          onChange={(variables) => {
+            setSettingsDraft((current) => ({ ...current, variables }));
+            setHasSessionDraftChanges(true);
+          }}
         />
       ) : null}
     </EnvironmentSettingsPage>
@@ -674,25 +726,18 @@ function DiscoveryMessage({
 }
 
 function DiagnosticResults({
-  diagnostics,
+  hasSessionDraftChanges,
   locale,
+  probe,
   requestError,
   requestState
 }: {
-  diagnostics: ProbeDiagnostic[];
+  hasSessionDraftChanges: boolean;
   locale: Locale;
+  probe: ProbeResult | null;
   requestError: string;
   requestState: RequestState;
 }) {
-  if (requestState === "saved") {
-    return (
-      <div className="environment-feedback environment-feedback--success" role="status">
-        <CheckCircle2 aria-hidden="true" />
-        <span>{translate(locale, "environment.saved")}</span>
-      </div>
-    );
-  }
-
   if (requestState === "error") {
     return (
       <div className="environment-feedback environment-feedback--error" role="alert">
@@ -704,7 +749,7 @@ function DiagnosticResults({
     );
   }
 
-  if (diagnostics.length === 0) {
+  if (!probe) {
     return (
       <div className="environment-feedback">
         <Info aria-hidden="true" />
@@ -713,9 +758,34 @@ function DiagnosticResults({
     );
   }
 
+  if (requestState === "saved") {
+    if (hasSessionDraftChanges) {
+      return null;
+    }
+
+    return (
+      <div className="environment-feedback environment-feedback--success" role="status">
+        <CheckCircle2 aria-hidden="true" />
+        <span>{translate(locale, "environment.saved")}</span>
+      </div>
+    );
+  }
+
+  if (probe.diagnostics.length === 0) {
+    return (
+      <div
+        className="environment-feedback environment-feedback--success"
+        role="status"
+      >
+        <CheckCircle2 aria-hidden="true" />
+        <span>{translate(locale, "environment.diagnostics.clear")}</span>
+      </div>
+    );
+  }
+
   return (
     <ul className="diagnostic-list">
-      {diagnostics.map((diagnostic) => (
+      {probe.diagnostics.map((diagnostic) => (
         <li data-severity={diagnostic.severity} key={`${diagnostic.code}-${diagnostic.message}`}>
           {diagnostic.severity === "blocking" ? (
             <AlertCircle aria-hidden="true" />
@@ -760,4 +830,42 @@ function countDiscoveredPaths(discovery: EnvironmentPathDiscovery): number {
       0
     )
   );
+}
+
+function getPageStatus(
+  profile: EnvironmentProfile,
+  probe: ProbeResult | null,
+  requestState: RequestState,
+  hasSessionDraftChanges: boolean,
+  hasInvalidSessionDraft: boolean
+): EnvironmentPageStatus {
+  if (requestState === "probing" || requestState === "saving") {
+    return requestState;
+  }
+
+  if (requestState === "error") {
+    return "error";
+  }
+
+  if (probe?.diagnostics.some((diagnostic) => diagnostic.severity === "blocking")) {
+    return "blocked";
+  }
+
+  if (hasInvalidSessionDraft) {
+    return "draft-error";
+  }
+
+  if (hasSessionDraftChanges) {
+    return "session-draft";
+  }
+
+  if (requestState === "saved") {
+    return "saved";
+  }
+
+  if (probe) {
+    return "ready";
+  }
+
+  return profile.last_validated_at ? "saved" : "pending";
 }

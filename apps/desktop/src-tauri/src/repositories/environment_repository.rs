@@ -5,10 +5,7 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use sqlx::{
-    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
-    Row, SqlitePool,
-};
+use sqlx::{Row, SqlitePool};
 use uuid::Uuid;
 
 use crate::domain::{
@@ -16,7 +13,7 @@ use crate::domain::{
     environment::{ApiBinding, EnvironmentProfile, EnvironmentRoots},
 };
 
-use super::migrations;
+use super::{database::AppDatabase, migrations};
 
 #[derive(Clone)]
 pub struct EnvironmentRepository {
@@ -36,30 +33,23 @@ pub struct RepositoryError {
 
 impl EnvironmentRepository {
     pub async fn connect_in_memory() -> Result<Self, RepositoryError> {
-        let options = SqliteConnectOptions::new()
-            .filename(":memory:")
-            .create_if_missing(true)
-            .foreign_keys(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(options)
+        let database = AppDatabase::connect_in_memory()
             .await
             .map_err(RepositoryError::database)?;
 
-        Self::from_pool(pool).await
+        Ok(Self {
+            pool: database.pool().clone(),
+        })
     }
 
     pub async fn connect_file(database_path: impl AsRef<Path>) -> Result<Self, RepositoryError> {
-        let options = SqliteConnectOptions::new()
-            .filename(database_path)
-            .create_if_missing(true)
-            .foreign_keys(true);
-        let pool = SqlitePoolOptions::new()
-            .connect_with(options)
+        let database = AppDatabase::connect_file(database_path)
             .await
             .map_err(RepositoryError::database)?;
 
-        Self::from_pool(pool).await
+        Ok(Self {
+            pool: database.pool().clone(),
+        })
     }
 
     pub async fn from_pool(pool: SqlitePool) -> Result<Self, RepositoryError> {
@@ -139,6 +129,22 @@ impl EnvironmentRepository {
         .map_err(RepositoryError::database)?;
 
         rows.into_iter().map(EnvironmentProfile::try_from).collect()
+    }
+
+    pub async fn get(&self, id: Uuid) -> Result<Option<EnvironmentProfile>, RepositoryError> {
+        sqlx::query(
+            r#"
+            SELECT id, name, comfy_root, python_executable, api_host, api_port, roots_json, last_validated_at
+            FROM environment_profiles
+            WHERE id = ?
+            "#,
+        )
+        .bind(id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(RepositoryError::database)?
+        .map(EnvironmentProfile::try_from)
+        .transpose()
     }
 }
 

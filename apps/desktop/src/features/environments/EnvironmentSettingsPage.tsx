@@ -1,29 +1,57 @@
-import { CheckCircle2, Clock3 } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock3,
+  LoaderCircle
+} from "lucide-react";
 import type { ReactNode } from "react";
 
-import { translate, type Locale } from "../../i18n/translate";
+import { translate, type Locale, type MessageKey } from "../../i18n/translate";
 import type { EnvironmentProfile } from "./environmentApi";
 import {
   EnvironmentSettingsTabs,
   type EnvironmentSettingsTab
 } from "./EnvironmentSettingsTabs";
 
+export type EnvironmentPageStatus =
+  | "pending"
+  | "probing"
+  | "blocked"
+  | "draft-error"
+  | "ready"
+  | "saving"
+  | "saved"
+  | "session-draft"
+  | "error";
+
 type EnvironmentSettingsPageProps = {
   activeTab: EnvironmentSettingsTab;
+  actions: ReactNode;
   children: ReactNode;
   locale: Locale;
   onTabChange(tab: EnvironmentSettingsTab): void;
   profile: EnvironmentProfile;
+  status: EnvironmentPageStatus;
 };
 
 export function EnvironmentSettingsPage({
   activeTab,
+  actions,
   children,
   locale,
   onTabChange,
-  profile
+  profile,
+  status
 }: EnvironmentSettingsPageProps) {
-  const isChecked = Boolean(profile.last_validated_at);
+  const statusKey = statusMessageKeys[status];
+  const StatusIcon =
+    status === "ready" || status === "saved"
+      ? CheckCircle2
+      : status === "probing" || status === "saving"
+        ? LoaderCircle
+        : status === "blocked" || status === "draft-error" || status === "error"
+          ? AlertCircle
+          : Clock3;
 
   return (
     <section
@@ -33,28 +61,51 @@ export function EnvironmentSettingsPage({
     >
       <header className="environment-settings-page__header">
         <div className="environment-settings-page__identity">
-          <span>{translate(locale, "environment.command.eyebrow")}</span>
-          <div>
-            <h2>{translate(locale, "environment.settingsTitle")}</h2>
-            <p>{profile.name || translate(locale, "environment.name")}</p>
+          <div className="environment-settings-page__title-row">
+            <h1>{translate(locale, "environment.settingsTitle")}</h1>
+            <div
+              className="environment-settings-page__state"
+              data-status={status}
+              role="status"
+            >
+              <StatusIcon
+                aria-hidden="true"
+                className={
+                  status === "probing" || status === "saving" ? "spin" : undefined
+                }
+              />
+              <span>{translate(locale, statusKey)}</span>
+            </div>
           </div>
+          <p>
+            {profile.name.trim() ||
+              translate(locale, "environment.profile.unnamed")}
+          </p>
         </div>
-        <div className="environment-settings-page__state" role="status">
-          {isChecked ? <CheckCircle2 aria-hidden="true" /> : <Clock3 aria-hidden="true" />}
-          <span>
-            {translate(
-              locale,
-              isChecked ? "environment.status.ready" : "environment.status.pending"
-            )}
-          </span>
+
+        <EnvironmentSettingsTabs
+          activeTab={activeTab}
+          locale={locale}
+          onTabChange={onTabChange}
+        />
+
+        <div className="environment-actions environment-settings-page__actions">
+          {actions}
         </div>
       </header>
-      <EnvironmentSettingsTabs
-        activeTab={activeTab}
-        locale={locale}
-        onTabChange={onTabChange}
-      />
       <div className="environment-settings-page__content">{children}</div>
     </section>
   );
 }
+
+const statusMessageKeys: Record<EnvironmentPageStatus, MessageKey> = {
+  blocked: "environment.status.blocked",
+  "draft-error": "environment.status.draftError",
+  error: "environment.requestFailed",
+  pending: "environment.status.pending",
+  probing: "environment.probing",
+  ready: "environment.status.ready",
+  saved: "environment.status.saved",
+  saving: "environment.saving",
+  "session-draft": "environment.status.sessionDraft"
+};

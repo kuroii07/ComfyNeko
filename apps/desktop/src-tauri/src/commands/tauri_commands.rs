@@ -3,8 +3,11 @@ use std::{path::PathBuf, time::Duration};
 use tauri::State;
 
 use crate::{
-    commands::EnvironmentCommandService,
-    domain::environment::EnvironmentProfile,
+    commands::{AssetScanCommandService, CommandErrorPayload, EnvironmentCommandService},
+    domain::{
+        asset_scan::{AssetScanIssue, AssetScanTaskSnapshot},
+        environment::EnvironmentProfile,
+    },
     services::{
         environment_discovery::{
             discover_environment_paths as discover_paths, EnvironmentPathDiscovery,
@@ -64,4 +67,61 @@ pub async fn list_environments(
         .list_environments()
         .await
         .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn start_asset_scan(
+    environment_id: String,
+    commands: State<'_, AssetScanCommandService>,
+) -> Result<AssetScanTaskSnapshot, CommandErrorPayload> {
+    commands.start(parse_uuid(&environment_id)?).await
+}
+
+#[tauri::command]
+pub async fn get_asset_scan_task(
+    task_id: String,
+    commands: State<'_, AssetScanCommandService>,
+) -> Result<AssetScanTaskSnapshot, CommandErrorPayload> {
+    commands.get(parse_uuid(&task_id)?).await
+}
+
+#[tauri::command]
+pub async fn list_asset_scan_tasks(
+    environment_id: Option<String>,
+    commands: State<'_, AssetScanCommandService>,
+) -> Result<Vec<AssetScanTaskSnapshot>, CommandErrorPayload> {
+    let environment_id = environment_id.as_deref().map(parse_uuid).transpose()?;
+    commands.list(environment_id).await
+}
+
+#[tauri::command]
+pub async fn list_asset_scan_issues(
+    task_id: String,
+    commands: State<'_, AssetScanCommandService>,
+) -> Result<Vec<AssetScanIssue>, CommandErrorPayload> {
+    commands.issues(parse_uuid(&task_id)?).await
+}
+
+#[tauri::command]
+pub async fn cancel_asset_scan(
+    task_id: String,
+    commands: State<'_, AssetScanCommandService>,
+) -> Result<AssetScanTaskSnapshot, CommandErrorPayload> {
+    commands.cancel(parse_uuid(&task_id)?).await
+}
+
+#[tauri::command]
+pub async fn resume_asset_scan(
+    task_id: String,
+    commands: State<'_, AssetScanCommandService>,
+) -> Result<AssetScanTaskSnapshot, CommandErrorPayload> {
+    commands.resume(parse_uuid(&task_id)?).await
+}
+
+fn parse_uuid(value: &str) -> Result<uuid::Uuid, CommandErrorPayload> {
+    uuid::Uuid::parse_str(value).map_err(|_| CommandErrorPayload {
+        code: "INVALID_ID".to_owned(),
+        message: format!("无效的标识符：{value}"),
+        retryable: false,
+    })
 }

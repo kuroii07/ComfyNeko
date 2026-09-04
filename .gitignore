@@ -27,6 +27,7 @@ logs/
 # User media and generated artifacts
 outputs/*
 !outputs/.gitkeep
+output/
 work/*
 !work/.gitkeep
 

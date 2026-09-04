@@ -140,6 +140,30 @@ describe("AppShell", () => {
     expect(screen.getByTestId("active-page")).toHaveTextContent("settings");
   });
 
+  it("exposes guarded navigation to page content", () => {
+    render(
+      <AppShell
+        initialPreferences={{
+          locale: "zh-CN",
+          sidebarCollapsed: false,
+          theme: "light"
+        }}
+      >
+        {({ navigateTo, page }) => (
+          <>
+            <p data-testid="render-page">{page}</p>
+            <button type="button" onClick={() => navigateTo("assets")}>
+              打开资产页
+            </button>
+          </>
+        )}
+      </AppShell>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "打开资产页" }));
+    expect(screen.getByTestId("render-page")).toHaveTextContent("assets");
+  });
+
   it("toggles the page theme from the compact footer action", () => {
     render(
       <AppShell

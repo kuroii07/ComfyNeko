@@ -22,6 +22,25 @@ pub struct DiscoveryReport {
     pub issues: Vec<DiscoveryIssue>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedScanRoot {
+    pub kind: AssetRootKind,
+    pub path: PathBuf,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DirectoryDiscovery {
+    pub observations: Vec<AssetObservation>,
+    pub child_directories: Vec<PathBuf>,
+    pub issues: Vec<DiscoveryIssue>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DirectoryDiscoveryOutcome {
+    Completed(DirectoryDiscovery),
+    Cancelled,
+}
+
 pub fn classify_asset(root_kind: AssetRootKind, path: &Path) -> Option<AssetKind> {
     let extension = path.extension()?.to_str()?.to_ascii_lowercase();
 
@@ -47,10 +66,36 @@ pub fn classify_asset(root_kind: AssetRootKind, path: &Path) -> Option<AssetKind
 
 pub fn discover_assets(environment_id: Uuid, roots: &[AssetScanRoot]) -> DiscoveryReport {
     let mut report = DiscoveryReport::default();
-    let mut seen = HashSet::new();
+    let mut seen_assets = HashSet::new();
+    let mut seen_directories = HashSet::new();
 
     for scan_root in roots {
-        discover_root(environment_id, scan_root, &mut seen, &mut report);
+        let Some(prepared_root) = prepare_scan_root(scan_root, &mut report.issues) else {
+            continue;
+        };
+        let mut pending = vec![prepared_root.path.clone()];
+
+        while let Some(directory) = pending.pop() {
+            let directory_identity = (prepared_root.kind.as_str().to_owned(), directory.clone());
+            if !seen_directories.insert(directory_identity) {
+                continue;
+            }
+
+            let DirectoryDiscoveryOutcome::Completed(discovery) =
+                discover_directory(environment_id, &prepared_root, &directory, || false)
+            else {
+                continue;
+            };
+
+            for observation in discovery.observations {
+                let identity = (environment_id, observation.normalized_path.clone());
+                if seen_assets.insert(identity) {
+                    report.observations.push(observation);
+                }
+            }
+            report.issues.extend(discovery.issues);
+            pending.extend(discovery.child_directories.into_iter().rev());
+        }
     }
 
     report
@@ -64,12 +109,127 @@ pub fn discover_assets(environment_id: Uuid, roots: &[AssetScanRoot]) -> Discove
     report
 }
 
-fn discover_root(
+pub fn discover_directory(
     environment_id: Uuid,
+    root: &PreparedScanRoot,
+    directory: &Path,
+    should_cancel: impl Fn() -> bool,
+) -> DirectoryDiscoveryOutcome {
+    if should_cancel() {
+        return DirectoryDiscoveryOutcome::Cancelled;
+    }
+
+    let mut report = DirectoryDiscovery::default();
+    if !directory.starts_with(&root.path) {
+        report.issues.push(DiscoveryIssue {
+            path: directory.to_path_buf(),
+            code: "ASSET_PATH_ESCAPES_ROOT".to_owned(),
+            message: format!("资产路径超出允许目录：{}", directory.display()),
+        });
+        return DirectoryDiscoveryOutcome::Completed(report);
+    }
+
+    let entries = match fs::read_dir(directory) {
+        Ok(entries) => entries,
+        Err(error) => {
+            let code = if directory == root.path {
+                if error.kind() == std::io::ErrorKind::NotFound {
+                    "ASSET_ROOT_NOT_FOUND"
+                } else {
+                    "ASSET_ROOT_UNREADABLE"
+                }
+            } else {
+                "ASSET_ENTRY_UNREADABLE"
+            };
+            report.issues.push(issue(directory, code, error));
+            return DirectoryDiscoveryOutcome::Completed(report);
+        }
+    };
+    let mut entry_paths = Vec::new();
+    for entry in entries {
+        match entry {
+            Ok(entry) => entry_paths.push(entry.path()),
+            Err(error) => report
+                .issues
+                .push(issue(directory, "ASSET_ENTRY_UNREADABLE", error)),
+        }
+    }
+    entry_paths.sort_by(|left, right| left.to_string_lossy().cmp(&right.to_string_lossy()));
+
+    for path in entry_paths {
+        if should_cancel() {
+            return DirectoryDiscoveryOutcome::Cancelled;
+        }
+
+        let metadata = match fs::symlink_metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(error) => {
+                report
+                    .issues
+                    .push(issue(&path, "ASSET_ENTRY_UNREADABLE", error));
+                continue;
+            }
+        };
+        if is_link_or_reparse_point(&metadata) {
+            continue;
+        }
+
+        let normalized_path = match dunce::canonicalize(&path) {
+            Ok(path) => path,
+            Err(error) => {
+                report
+                    .issues
+                    .push(issue(&path, "ASSET_ENTRY_UNREADABLE", error));
+                continue;
+            }
+        };
+        if !normalized_path.starts_with(&root.path) {
+            report.issues.push(DiscoveryIssue {
+                path: normalized_path,
+                code: "ASSET_PATH_ESCAPES_ROOT".to_owned(),
+                message: format!("资产路径超出允许目录：{}", path.display()),
+            });
+            continue;
+        }
+
+        if metadata.is_dir() {
+            report.child_directories.push(normalized_path);
+            continue;
+        }
+        if !metadata.is_file() {
+            continue;
+        }
+
+        let Some(kind) = classify_asset(root.kind, &normalized_path) else {
+            continue;
+        };
+        report.observations.push(AssetObservation {
+            environment_id,
+            root_kind: root.kind,
+            normalized_path,
+            kind,
+            size_bytes: metadata.len(),
+            modified_at: metadata.modified().ok().map(DateTime::<Utc>::from),
+        });
+    }
+
+    report
+        .observations
+        .sort_by(|left, right| left.normalized_path.cmp(&right.normalized_path));
+    report.child_directories.sort();
+    report.issues.sort_by(|left, right| {
+        left.path
+            .cmp(&right.path)
+            .then_with(|| left.code.cmp(&right.code))
+    });
+
+    DirectoryDiscoveryOutcome::Completed(report)
+}
+
+fn prepare_scan_root(
     scan_root: &AssetScanRoot,
-    seen: &mut HashSet<(Uuid, PathBuf)>,
-    report: &mut DiscoveryReport,
-) {
+    issues: &mut Vec<DiscoveryIssue>,
+) -> Option<PreparedScanRoot> {
     let root_metadata = match fs::metadata(&scan_root.path) {
         Ok(metadata) => metadata,
         Err(error) => {
@@ -78,116 +238,49 @@ fn discover_root(
             } else {
                 "ASSET_ROOT_UNREADABLE"
             };
-            report.issues.push(issue(&scan_root.path, code, error));
-            return;
+            issues.push(issue(&scan_root.path, code, error));
+            return None;
         }
     };
 
     if !root_metadata.is_dir() {
-        report.issues.push(DiscoveryIssue {
+        issues.push(DiscoveryIssue {
             path: scan_root.path.clone(),
             code: "ASSET_ROOT_NOT_DIRECTORY".to_owned(),
             message: format!("资产根路径不是目录：{}", scan_root.path.display()),
         });
-        return;
+        return None;
     }
 
     let canonical_root = match dunce::canonicalize(&scan_root.path) {
         Ok(path) => path,
         Err(error) => {
-            report
-                .issues
-                .push(issue(&scan_root.path, "ASSET_ROOT_UNREADABLE", error));
-            return;
+            issues.push(issue(&scan_root.path, "ASSET_ROOT_UNREADABLE", error));
+            return None;
         }
     };
-    let mut pending = vec![canonical_root.clone()];
 
-    while let Some(directory) = pending.pop() {
-        let entries = match fs::read_dir(&directory) {
-            Ok(entries) => entries,
-            Err(error) => {
-                let code = if directory == canonical_root {
-                    "ASSET_ROOT_UNREADABLE"
-                } else {
-                    "ASSET_ENTRY_UNREADABLE"
-                };
-                report.issues.push(issue(&directory, code, error));
-                continue;
-            }
-        };
+    Some(PreparedScanRoot {
+        kind: scan_root.kind,
+        path: canonical_root,
+    })
+}
 
-        for entry in entries {
-            let entry = match entry {
-                Ok(entry) => entry,
-                Err(error) => {
-                    report
-                        .issues
-                        .push(issue(&directory, "ASSET_ENTRY_UNREADABLE", error));
-                    continue;
-                }
-            };
-            let path = entry.path();
-            let metadata = match fs::symlink_metadata(&path) {
-                Ok(metadata) => metadata,
-                Err(error) => {
-                    report
-                        .issues
-                        .push(issue(&path, "ASSET_ENTRY_UNREADABLE", error));
-                    continue;
-                }
-            };
-
-            if metadata.file_type().is_symlink() {
-                continue;
-            }
-
-            let normalized_path = match dunce::canonicalize(&path) {
-                Ok(path) => path,
-                Err(error) => {
-                    report
-                        .issues
-                        .push(issue(&path, "ASSET_ENTRY_UNREADABLE", error));
-                    continue;
-                }
-            };
-
-            if !normalized_path.starts_with(&canonical_root) {
-                report.issues.push(DiscoveryIssue {
-                    path: normalized_path,
-                    code: "ASSET_PATH_ESCAPES_ROOT".to_owned(),
-                    message: format!("资产路径超出允许目录：{}", path.display()),
-                });
-                continue;
-            }
-
-            if metadata.is_dir() {
-                pending.push(normalized_path);
-                continue;
-            }
-
-            if !metadata.is_file() {
-                continue;
-            }
-
-            let Some(kind) = classify_asset(scan_root.kind, &normalized_path) else {
-                continue;
-            };
-            let identity = (environment_id, normalized_path.clone());
-            if !seen.insert(identity) {
-                continue;
-            }
-
-            report.observations.push(AssetObservation {
-                environment_id,
-                root_kind: scan_root.kind,
-                normalized_path,
-                kind,
-                size_bytes: metadata.len(),
-                modified_at: metadata.modified().ok().map(DateTime::<Utc>::from),
-            });
-        }
+fn is_link_or_reparse_point(metadata: &fs::Metadata) -> bool {
+    if metadata.file_type().is_symlink() {
+        return true;
     }
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+
+        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x0400;
+        metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
+    }
+
+    #[cfg(not(windows))]
+    false
 }
 
 fn issue(path: &Path, code: &str, error: impl std::fmt::Display) -> DiscoveryIssue {
@@ -201,6 +294,7 @@ fn issue(path: &Path, code: &str, error: impl std::fmt::Display) -> DiscoveryIss
 #[cfg(test)]
 mod tests {
     use std::{
+        cell::Cell,
         fs,
         path::{Path, PathBuf},
     };
@@ -210,7 +304,10 @@ mod tests {
 
     use crate::domain::asset::{AssetKind, AssetRootKind, AssetScanRoot};
 
-    use super::{classify_asset, discover_assets};
+    use super::{
+        classify_asset, discover_assets, discover_directory, DirectoryDiscoveryOutcome,
+        PreparedScanRoot,
+    };
 
     #[test]
     fn classifies_supported_extensions_case_insensitively() {
@@ -401,6 +498,95 @@ mod tests {
         );
 
         assert!(report.observations.is_empty());
+    }
+
+    #[test]
+    fn discovers_only_direct_files_and_returns_sorted_child_directories() {
+        let temp_dir = tempdir().unwrap();
+        let root = temp_dir.path().join("input");
+        let alpha = root.join("alpha");
+        let beta = root.join("beta");
+        fs::create_dir_all(&alpha).unwrap();
+        fs::create_dir_all(&beta).unwrap();
+        fs::write(root.join("direct.png"), b"direct").unwrap();
+        fs::write(alpha.join("nested.png"), b"nested").unwrap();
+        let canonical_root = dunce::canonicalize(&root).unwrap();
+        let prepared = PreparedScanRoot {
+            kind: AssetRootKind::Input,
+            path: canonical_root.clone(),
+        };
+
+        let outcome = discover_directory(Uuid::nil(), &prepared, &canonical_root, || false);
+        let DirectoryDiscoveryOutcome::Completed(report) = outcome else {
+            panic!("directory discovery should complete");
+        };
+
+        assert_eq!(report.observations.len(), 1);
+        assert_eq!(
+            report.observations[0]
+                .normalized_path
+                .file_name()
+                .unwrap()
+                .to_string_lossy(),
+            "direct.png"
+        );
+        assert_eq!(
+            report.child_directories,
+            vec![
+                dunce::canonicalize(alpha).unwrap(),
+                dunce::canonicalize(beta).unwrap(),
+            ]
+        );
+    }
+
+    #[test]
+    fn cancellation_discards_partial_directory_results() {
+        let temp_dir = tempdir().unwrap();
+        let root = temp_dir.path().join("output");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("a.png"), b"a").unwrap();
+        fs::write(root.join("b.png"), b"b").unwrap();
+        let canonical_root = dunce::canonicalize(&root).unwrap();
+        let prepared = PreparedScanRoot {
+            kind: AssetRootKind::Output,
+            path: canonical_root.clone(),
+        };
+        let checks = Cell::new(0_u8);
+
+        let outcome = discover_directory(Uuid::nil(), &prepared, &canonical_root, || {
+            let next = checks.get() + 1;
+            checks.set(next);
+            next >= 3
+        });
+
+        assert_eq!(outcome, DirectoryDiscoveryOutcome::Cancelled);
+        assert!(checks.get() >= 3);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn does_not_return_windows_reparse_directories_as_children() {
+        let temp_dir = tempdir().unwrap();
+        let root = temp_dir.path().join("input");
+        let outside = temp_dir.path().join("outside");
+        let link = root.join("reparse-link");
+        fs::create_dir_all(&root).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        if std::os::windows::fs::symlink_dir(&outside, &link).is_err() {
+            return;
+        }
+        let canonical_root = dunce::canonicalize(&root).unwrap();
+        let prepared = PreparedScanRoot {
+            kind: AssetRootKind::Input,
+            path: canonical_root.clone(),
+        };
+
+        let outcome = discover_directory(Uuid::nil(), &prepared, &canonical_root, || false);
+        let DirectoryDiscoveryOutcome::Completed(report) = outcome else {
+            panic!("directory discovery should complete");
+        };
+
+        assert!(report.child_directories.is_empty());
     }
 
     fn snapshot(roots: &[PathBuf]) -> Vec<(PathBuf, u64)> {

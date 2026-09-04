@@ -58,3 +58,12 @@ async fn persists_profiles_across_file_connections() {
 
     assert_eq!(reopened.list().await.unwrap(), vec![profile]);
 }
+
+#[tokio::test]
+async fn gets_a_saved_environment_by_id() {
+    let repository = EnvironmentRepository::connect_in_memory().await.unwrap();
+    let profile = EnvironmentProfile::new("按 ID 查询", PathBuf::from(r"D:\ComfyUI"));
+    repository.save_if_valid(&profile, &[]).await.unwrap();
+
+    assert_eq!(repository.get(profile.id).await.unwrap(), Some(profile));
+}

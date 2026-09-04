@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within
+} from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { EnvironmentWizard } from "./EnvironmentWizard";
@@ -38,12 +44,38 @@ describe("EnvironmentWizard", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("第 1 行缺少等号");
   });
 
+  it("keeps the title, status, tabs, and primary actions in one page header", () => {
+    render(<EnvironmentWizard initialProfile={readyProfile} />);
+
+    const heading = screen.getByRole("heading", {
+      level: 1,
+      name: "环境设置"
+    });
+    const header = heading.closest("header");
+
+    expect(header).not.toBeNull();
+    const headerView = within(header!);
+    expect(headerView.getByText("公司环境")).toBeInTheDocument();
+    expect(headerView.getByRole("status")).toHaveTextContent("待检查");
+    expect(
+      headerView.getByRole("tablist", { name: "环境设置分区" })
+    ).toBeInTheDocument();
+    expect(headerView.getAllByRole("tab")).toHaveLength(4);
+    expect(
+      headerView.getByRole("button", { name: "检查环境" })
+    ).toBeInTheDocument();
+    expect(
+      headerView.getByRole("button", { name: "保存档案" })
+    ).toBeDisabled();
+  });
+
   it("renders one settings-style editor without steps or a status dashboard", () => {
     render(<EnvironmentWizard initialProfile={readyProfile} />);
 
     expect(screen.getByText("基础配置")).toBeInTheDocument();
     expect(screen.getByText("运行环境")).toBeInTheDocument();
-    expect(screen.getByText("诊断与保存")).toBeInTheDocument();
+    expect(screen.getByText("检查结果")).toBeInTheDocument();
+    expect(screen.queryByText("诊断与保存")).not.toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "环境绑定步骤" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("environment-status-rail")).not.toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "环境名称" })).toHaveValue("公司环境");
@@ -68,7 +100,59 @@ describe("EnvironmentWizard", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: "保存环境" })).toBeDisabled();
+    const header = screen
+      .getByRole("heading", { name: "环境设置" })
+      .closest("header");
+    expect(within(header!).getByRole("status")).toHaveTextContent("存在阻塞项");
+    expect(screen.getByRole("button", { name: "保存档案" })).toBeDisabled();
+  });
+
+  it("shows a successful empty diagnostic result after a clear probe", async () => {
+    const api = createApi({
+      probeEnvironment: vi.fn().mockResolvedValue(clearProbe)
+    });
+
+    render(<EnvironmentWizard api={api} initialProfile={readyProfile} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "检查环境" }));
+
+    expect(
+      await screen.findByText("未发现阻塞问题，可以保存此环境。")
+    ).toBeInTheDocument();
+    const header = screen
+      .getByRole("heading", { name: "环境设置" })
+      .closest("header");
+    expect(within(header!).getByRole("status")).toHaveTextContent("可以保存");
+    expect(screen.getByRole("button", { name: "保存档案" })).toBeEnabled();
+  });
+
+  it("returns a successful probe to pending after a persisted field changes", async () => {
+    const api = createApi({
+      probeEnvironment: vi.fn().mockResolvedValue(clearProbe)
+    });
+
+    render(<EnvironmentWizard api={api} initialProfile={readyProfile} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "检查环境" }));
+    expect(
+      await screen.findByText("未发现阻塞问题，可以保存此环境。")
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "环境名称" }), {
+      target: { value: "公司环境 2" }
+    });
+
+    const header = screen
+      .getByRole("heading", { name: "环境设置" })
+      .closest("header");
+    expect(within(header!).getByRole("status")).toHaveTextContent("待检查");
+    expect(screen.getByRole("button", { name: "保存档案" })).toBeDisabled();
+    expect(
+      screen.queryByText("未发现阻塞问题，可以保存此环境。")
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("尚未检查。检查过程只读取路径和运行时信息。")
+    ).toBeInTheDocument();
   });
 
   it("probes and saves from the same page", async () => {
@@ -81,11 +165,15 @@ describe("EnvironmentWizard", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "检查环境" }));
     await waitFor(() => expect(api.probeEnvironment).toHaveBeenCalledWith(readyProfile));
-    expect(screen.getByRole("button", { name: "保存环境" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "保存档案" })).toBeEnabled();
 
-    fireEvent.click(screen.getByRole("button", { name: "保存环境" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存档案" }));
     await waitFor(() => expect(api.saveEnvironment).toHaveBeenCalledWith(readyProfile));
-    expect(screen.getByText("环境已保存")).toBeInTheDocument();
+    expect(screen.getByText("环境档案已保存")).toBeInTheDocument();
+    const header = screen
+      .getByRole("heading", { name: "环境设置" })
+      .closest("header");
+    expect(within(header!).getByRole("status")).toHaveTextContent("已保存");
   });
 
   it("locks duplicate actions while a probe is pending", async () => {
@@ -102,12 +190,79 @@ describe("EnvironmentWizard", () => {
     fireEvent.click(screen.getByRole("button", { name: "检查环境" }));
 
     expect(screen.getByRole("button", { name: "检查中…" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "保存环境" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "保存档案" })).toBeDisabled();
 
     resolveProbe(clearProbe);
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "保存环境" })).toBeEnabled()
+      expect(screen.getByRole("button", { name: "保存档案" })).toBeEnabled()
     );
+  });
+
+  it("keeps session-only drafts distinct from the saved environment profile", async () => {
+    const api = createApi({
+      probeEnvironment: vi.fn().mockResolvedValue(clearProbe),
+      saveEnvironment: vi.fn().mockResolvedValue(clearProbe)
+    });
+
+    render(<EnvironmentWizard api={api} initialProfile={readyProfile} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "加速与架构" }));
+    fireEvent.click(screen.getByRole("button", { name: "性能优先" }));
+
+    const header = screen
+      .getByRole("heading", { name: "环境设置" })
+      .closest("header");
+    expect(within(header!).getByRole("status")).toHaveTextContent("会话草案");
+
+    fireEvent.click(screen.getByRole("button", { name: "检查环境" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "保存档案" })).toBeEnabled()
+    );
+    expect(within(header!).getByRole("status")).toHaveTextContent("会话草案");
+
+    fireEvent.click(screen.getByRole("button", { name: "保存档案" }));
+    expect(
+      await screen.findByText("基础档案已保存；会话草案仍未持久化。")
+    ).toBeInTheDocument();
+    expect(within(header!).getByRole("status")).toHaveTextContent("会话草案");
+  });
+
+  it("marks an invalid variable draft as an error instead of ready or saved", () => {
+    render(
+      <EnvironmentWizard initialProbe={clearProbe} initialProfile={readyProfile} />
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "环境变量" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "启动环境变量" }), {
+      target: { value: "BROKEN" }
+    });
+
+    const header = screen
+      .getByRole("heading", { name: "环境设置" })
+      .closest("header");
+    expect(within(header!).getByRole("status")).toHaveTextContent("草案有误");
+    expect(within(header!).getByRole("status")).not.toHaveTextContent("可以保存");
+    expect(within(header!).getByRole("status")).not.toHaveTextContent("已保存");
+  });
+
+  it("keeps blocking diagnostics ahead of session draft errors", () => {
+    render(
+      <EnvironmentWizard
+        initialProbe={blockingProbe}
+        initialProfile={readyProfile}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "环境变量" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "启动环境变量" }), {
+      target: { value: "BROKEN" }
+    });
+
+    const header = screen
+      .getByRole("heading", { name: "环境设置" })
+      .closest("header");
+    expect(within(header!).getByRole("status")).toHaveTextContent("存在阻塞项");
+    expect(within(header!).getByRole("status")).not.toHaveTextContent("草案有误");
   });
 
   it("automatically discovers conventional paths after the ComfyUI root is entered", async () => {

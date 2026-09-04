@@ -1,5 +1,6 @@
 use std::{path::PathBuf, time::Duration};
 
+use chrono::Utc;
 use comfyneko_core::{
     commands::{EnvironmentCommandError, EnvironmentCommandService},
     domain::{
@@ -8,6 +9,20 @@ use comfyneko_core::{
     },
     repositories::environment_repository::EnvironmentRepository,
 };
+
+#[tokio::test]
+async fn successful_save_records_a_validation_timestamp() {
+    let repository = EnvironmentRepository::connect_in_memory().await.unwrap();
+    let commands = EnvironmentCommandService::new(repository);
+    let profile = EnvironmentProfile::new("主力环境", PathBuf::from(r"H:\\ComfyUI"));
+    let before_save = Utc::now();
+
+    commands.save_environment(&profile, &[]).await.unwrap();
+
+    let saved = commands.list_environments().await.unwrap().remove(0);
+    assert!(saved.last_validated_at.is_some());
+    assert!(saved.last_validated_at.unwrap() >= before_save);
+}
 
 #[tokio::test]
 async fn command_refuses_a_blocking_profile_without_replacing_a_saved_environment() {
@@ -33,10 +48,10 @@ async fn command_refuses_a_blocking_profile_without_replacing_a_saved_environmen
         .unwrap_err();
 
     assert_eq!(error, EnvironmentCommandError::BlockingDiagnostics);
-    assert_eq!(
-        commands.list_environments().await.unwrap(),
-        vec![valid_profile]
-    );
+    let saved = commands.list_environments().await.unwrap().remove(0);
+    assert_eq!(saved.id, valid_profile.id);
+    assert_eq!(saved.name, valid_profile.name);
+    assert!(saved.last_validated_at.is_some());
 }
 
 #[tokio::test]
@@ -78,8 +93,15 @@ async fn command_service_reopens_saved_profiles_from_file() {
         .await
         .unwrap();
 
+    let saved = restarted.list_environments().await.unwrap();
     assert_eq!(
-        restarted.list_environments().await.unwrap(),
-        vec![company, home]
+        saved
+            .iter()
+            .map(|profile| profile.name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["公司环境", "家里环境"]
     );
+    assert!(saved
+        .iter()
+        .all(|profile| profile.last_validated_at.is_some()));
 }

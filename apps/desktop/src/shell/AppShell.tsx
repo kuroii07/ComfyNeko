@@ -65,15 +65,23 @@ export type AppShellRenderContext = {
   locale: Locale;
   page: AppPage;
   preferences: AppPreferences;
+  navigateTo(page: AppPage): void;
   updatePreferences(patch: Partial<AppPreferences>): void;
 };
 
 type AppShellProps = {
   children: ReactNode | ((context: AppShellRenderContext) => ReactNode);
+  hasUnsavedChanges?: boolean;
   initialPreferences?: AppPreferences;
+  onDiscardUnsavedChanges?(): void;
 };
 
-export function AppShell({ children, initialPreferences }: AppShellProps) {
+export function AppShell({
+  children,
+  hasUnsavedChanges = false,
+  initialPreferences,
+  onDiscardUnsavedChanges
+}: AppShellProps) {
   const [page, setPage] = useState<AppPage>("environments");
   const [preferences, setPreferences] = useState<AppPreferences>(
     () => initialPreferences ?? readPreferences(window.localStorage)
@@ -94,9 +102,33 @@ export function AppShell({ children, initialPreferences }: AppShellProps) {
     setPreferences((current) => ({ ...current, ...patch }));
   }
 
+  function navigateTo(nextPage: AppPage) {
+    if (nextPage === page) {
+      return;
+    }
+
+    if (
+      hasUnsavedChanges &&
+      !window.confirm(translate(locale, "navigation.discardChanges"))
+    ) {
+      return;
+    }
+
+    if (hasUnsavedChanges) {
+      onDiscardUnsavedChanges?.();
+    }
+    setPage(nextPage);
+  }
+
   const content =
     typeof children === "function"
-      ? children({ locale, page, preferences, updatePreferences })
+      ? children({
+          locale,
+          navigateTo,
+          page,
+          preferences,
+          updatePreferences
+        })
       : children;
 
   useEffect(() => {
@@ -133,7 +165,7 @@ export function AppShell({ children, initialPreferences }: AppShellProps) {
               icon={item.icon}
               key={item.page}
               label={translate(locale, item.labelKey)}
-              onClick={() => setPage(item.page)}
+              onClick={() => navigateTo(item.page)}
             />
           ))}
         </nav>
@@ -151,7 +183,7 @@ export function AppShell({ children, initialPreferences }: AppShellProps) {
                 icon={item.icon}
                 key={item.page}
                 label={translate(locale, item.labelKey)}
-                onClick={() => setPage(item.page)}
+                onClick={() => navigateTo(item.page)}
               />
             ))}
           </nav>

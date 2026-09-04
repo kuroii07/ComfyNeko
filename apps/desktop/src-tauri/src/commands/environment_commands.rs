@@ -1,5 +1,7 @@
 use std::{error::Error, fmt, path::Path, time::Duration};
 
+use chrono::Utc;
+
 use crate::{
     domain::{diagnostic::Diagnostic, environment::EnvironmentProfile},
     repositories::environment_repository::{EnvironmentRepository, SaveEnvironmentError},
@@ -36,8 +38,11 @@ impl EnvironmentCommandService {
         profile: &EnvironmentProfile,
         diagnostics: &[Diagnostic],
     ) -> Result<(), EnvironmentCommandError> {
+        let mut validated_profile = profile.clone();
+        validated_profile.last_validated_at = Some(Utc::now());
+
         self.repository
-            .save_if_valid(profile, diagnostics)
+            .save_if_valid(&validated_profile, diagnostics)
             .await
             .map_err(EnvironmentCommandError::from)
     }

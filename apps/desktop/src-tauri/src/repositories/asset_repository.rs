@@ -5,17 +5,14 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use sqlx::{
-    sqlite::{SqliteConnectOptions, SqlitePoolOptions, SqliteRow},
-    Row, SqlitePool,
-};
+use sqlx::{sqlite::SqliteRow, Row, Sqlite, SqlitePool, Transaction};
 use uuid::Uuid;
 
 use crate::domain::asset::{
     AssetKind, AssetObservation, AssetRecord, AssetRootKind, AssetUpsertOutcome,
 };
 
-use super::migrations;
+use super::{database::AppDatabase, migrations};
 
 #[derive(Clone)]
 pub struct AssetRepository {
@@ -27,34 +24,32 @@ pub struct AssetRepositoryError {
     message: String,
 }
 
+pub(crate) struct AssetScanWitness {
+    pub task_id: Uuid,
+    pub seen_at: DateTime<Utc>,
+}
+
 impl AssetRepository {
     pub async fn connect_in_memory() -> Result<Self, AssetRepositoryError> {
-        let options = SqliteConnectOptions::new()
-            .filename(":memory:")
-            .create_if_missing(true)
-            .foreign_keys(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(options)
+        let database = AppDatabase::connect_in_memory()
             .await
             .map_err(AssetRepositoryError::database)?;
 
-        Self::from_pool(pool).await
+        Ok(Self {
+            pool: database.pool().clone(),
+        })
     }
 
     pub async fn connect_file(
         database_path: impl AsRef<Path>,
     ) -> Result<Self, AssetRepositoryError> {
-        let options = SqliteConnectOptions::new()
-            .filename(database_path)
-            .create_if_missing(true)
-            .foreign_keys(true);
-        let pool = SqlitePoolOptions::new()
-            .connect_with(options)
+        let database = AppDatabase::connect_file(database_path)
             .await
             .map_err(AssetRepositoryError::database)?;
 
-        Self::from_pool(pool).await
+        Ok(Self {
+            pool: database.pool().clone(),
+        })
     }
 
     pub async fn from_pool(pool: SqlitePool) -> Result<Self, AssetRepositoryError> {
@@ -69,82 +64,18 @@ impl AssetRepository {
         &self,
         observation: &AssetObservation,
     ) -> Result<AssetUpsertOutcome, AssetRepositoryError> {
-        let normalized_path = observation.normalized_path.to_string_lossy().to_string();
-        let existing = sqlx::query(
-            r#"
-            SELECT id, environment_id, root_kind, kind, normalized_path, size_bytes,
-                   modified_at, fingerprint, indexed_at
-            FROM assets
-            WHERE environment_id = ? AND normalized_path = ?
-            "#,
-        )
-        .bind(observation.environment_id.to_string())
-        .bind(&normalized_path)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(AssetRepositoryError::database)?
-        .map(AssetRecord::try_from)
-        .transpose()?;
-
-        if let Some(existing) = existing {
-            if existing.observation == *observation {
-                return Ok(AssetUpsertOutcome::Unchanged(existing));
-            }
-
-            let indexed_at = Utc::now();
-            sqlx::query(
-                r#"
-                UPDATE assets
-                SET root_kind = ?, kind = ?, size_bytes = ?, modified_at = ?, indexed_at = ?
-                WHERE id = ?
-                "#,
-            )
-            .bind(observation.root_kind.as_str())
-            .bind(observation.kind.as_str())
-            .bind(size_for_database(observation.size_bytes)?)
-            .bind(timestamp_for_database(observation.modified_at))
-            .bind(indexed_at.to_rfc3339())
-            .bind(existing.id.to_string())
-            .execute(&self.pool)
+        let mut transaction = self
+            .pool
+            .begin_with("BEGIN IMMEDIATE")
+            .await
+            .map_err(AssetRepositoryError::database)?;
+        let outcome = upsert_in_transaction(&mut transaction, observation, None).await?;
+        transaction
+            .commit()
             .await
             .map_err(AssetRepositoryError::database)?;
 
-            return Ok(AssetUpsertOutcome::Updated(AssetRecord {
-                id: existing.id,
-                observation: observation.clone(),
-                fingerprint: existing.fingerprint,
-                indexed_at,
-            }));
-        }
-
-        let record = AssetRecord {
-            id: Uuid::new_v4(),
-            observation: observation.clone(),
-            fingerprint: None,
-            indexed_at: Utc::now(),
-        };
-        sqlx::query(
-            r#"
-            INSERT INTO assets (
-                id, environment_id, root_kind, kind, normalized_path, size_bytes,
-                modified_at, fingerprint, indexed_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            "#,
-        )
-        .bind(record.id.to_string())
-        .bind(record.observation.environment_id.to_string())
-        .bind(record.observation.root_kind.as_str())
-        .bind(record.observation.kind.as_str())
-        .bind(normalized_path)
-        .bind(size_for_database(record.observation.size_bytes)?)
-        .bind(timestamp_for_database(record.observation.modified_at))
-        .bind(&record.fingerprint)
-        .bind(record.indexed_at.to_rfc3339())
-        .execute(&self.pool)
-        .await
-        .map_err(AssetRepositoryError::database)?;
-
-        Ok(AssetUpsertOutcome::Inserted(record))
+        Ok(outcome)
     }
 
     pub async fn list_for_environment(
@@ -167,6 +98,125 @@ impl AssetRepository {
 
         rows.into_iter().map(AssetRecord::try_from).collect()
     }
+}
+
+pub(crate) async fn upsert_in_transaction(
+    transaction: &mut Transaction<'_, Sqlite>,
+    observation: &AssetObservation,
+    witness: Option<&AssetScanWitness>,
+) -> Result<AssetUpsertOutcome, AssetRepositoryError> {
+    let normalized_path = observation.normalized_path.to_string_lossy().to_string();
+    let existing = sqlx::query(
+        r#"
+        SELECT id, environment_id, root_kind, kind, normalized_path, size_bytes,
+               modified_at, fingerprint, indexed_at
+        FROM assets
+        WHERE environment_id = ? AND normalized_path = ?
+        "#,
+    )
+    .bind(observation.environment_id.to_string())
+    .bind(&normalized_path)
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(AssetRepositoryError::database)?
+    .map(AssetRecord::try_from)
+    .transpose()?;
+
+    if let Some(existing) = existing {
+        if existing.observation == *observation {
+            if let Some(witness) = witness {
+                sqlx::query(
+                    r#"
+                    UPDATE assets
+                    SET last_seen_scan_id = ?,
+                        last_seen_at = ?,
+                        is_present = 1,
+                        missing_since = NULL
+                    WHERE id = ?
+                    "#,
+                )
+                .bind(witness.task_id.to_string())
+                .bind(witness.seen_at.to_rfc3339())
+                .bind(existing.id.to_string())
+                .execute(&mut **transaction)
+                .await
+                .map_err(AssetRepositoryError::database)?;
+            }
+
+            return Ok(AssetUpsertOutcome::Unchanged(existing));
+        }
+
+        let indexed_at = Utc::now();
+        let scan_id = witness.map(|value| value.task_id.to_string());
+        let seen_at = witness.map(|value| value.seen_at.to_rfc3339());
+        sqlx::query(
+            r#"
+            UPDATE assets
+            SET root_kind = ?,
+                kind = ?,
+                size_bytes = ?,
+                modified_at = ?,
+                indexed_at = ?,
+                last_seen_scan_id = COALESCE(?, last_seen_scan_id),
+                last_seen_at = COALESCE(?, last_seen_at),
+                is_present = CASE WHEN ? IS NULL THEN is_present ELSE 1 END,
+                missing_since = CASE WHEN ? IS NULL THEN missing_since ELSE NULL END
+            WHERE id = ?
+            "#,
+        )
+        .bind(observation.root_kind.as_str())
+        .bind(observation.kind.as_str())
+        .bind(size_for_database(observation.size_bytes)?)
+        .bind(timestamp_for_database(observation.modified_at))
+        .bind(indexed_at.to_rfc3339())
+        .bind(&scan_id)
+        .bind(&seen_at)
+        .bind(&scan_id)
+        .bind(&scan_id)
+        .bind(existing.id.to_string())
+        .execute(&mut **transaction)
+        .await
+        .map_err(AssetRepositoryError::database)?;
+
+        return Ok(AssetUpsertOutcome::Updated(AssetRecord {
+            id: existing.id,
+            observation: observation.clone(),
+            fingerprint: existing.fingerprint,
+            indexed_at,
+        }));
+    }
+
+    let record = AssetRecord {
+        id: Uuid::new_v4(),
+        observation: observation.clone(),
+        fingerprint: None,
+        indexed_at: Utc::now(),
+    };
+    sqlx::query(
+        r#"
+        INSERT INTO assets (
+            id, environment_id, root_kind, kind, normalized_path, size_bytes,
+            modified_at, fingerprint, indexed_at, last_seen_scan_id, last_seen_at,
+            is_present, missing_since
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL)
+        "#,
+    )
+    .bind(record.id.to_string())
+    .bind(record.observation.environment_id.to_string())
+    .bind(record.observation.root_kind.as_str())
+    .bind(record.observation.kind.as_str())
+    .bind(normalized_path)
+    .bind(size_for_database(record.observation.size_bytes)?)
+    .bind(timestamp_for_database(record.observation.modified_at))
+    .bind(&record.fingerprint)
+    .bind(record.indexed_at.to_rfc3339())
+    .bind(witness.map(|value| value.task_id.to_string()))
+    .bind(witness.map(|value| value.seen_at.to_rfc3339()))
+    .execute(&mut **transaction)
+    .await
+    .map_err(AssetRepositoryError::database)?;
+
+    Ok(AssetUpsertOutcome::Inserted(record))
 }
 
 impl TryFrom<SqliteRow> for AssetRecord {
