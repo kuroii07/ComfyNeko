@@ -58,6 +58,8 @@ async fn paginates_assets_in_stable_path_order_and_isolates_environments() {
             root_kind: None,
             directory: None,
             availability: None,
+            search: None,
+            media_only: false,
             page: 1,
             page_size: 2,
         })
@@ -71,6 +73,8 @@ async fn paginates_assets_in_stable_path_order_and_isolates_environments() {
             root_kind: None,
             directory: None,
             availability: None,
+            search: None,
+            media_only: false,
             page: 2,
             page_size: 2,
         })
@@ -140,6 +144,8 @@ async fn combines_kind_root_directory_and_availability_filters() {
             root_kind: Some(AssetRootKind::Models),
             directory: Some(PathBuf::from(r"d:\comfyui\MODELS\checkpoints\\")),
             availability: Some(AssetAvailability::Missing),
+            search: None,
+            media_only: false,
             page: 1,
             page_size: 50,
         })
@@ -186,6 +192,8 @@ async fn directory_filter_treats_sql_wildcards_as_literal_path_characters() {
             root_kind: None,
             directory: Some(PathBuf::from(r"D:\ComfyUI\output\set_100%")),
             availability: None,
+            search: None,
+            media_only: false,
             page: 1,
             page_size: 50,
         })
@@ -194,6 +202,74 @@ async fn directory_filter_treats_sql_wildcards_as_literal_path_characters() {
 
     assert_eq!(page.total_items, 1);
     assert_eq!(page.items[0].name, "wanted.png");
+}
+
+#[tokio::test]
+async fn media_only_query_excludes_models_and_workflows() {
+    let fixture = QueryFixture::new().await;
+    fixture
+        .insert(
+            fixture.company.id,
+            AssetRootKind::Input,
+            AssetKind::Image,
+            r"D:\ComfyUI\input\reference.png",
+        )
+        .await;
+    fixture
+        .insert(
+            fixture.company.id,
+            AssetRootKind::Output,
+            AssetKind::Video,
+            r"D:\ComfyUI\output\preview.mp4",
+        )
+        .await;
+    fixture
+        .insert(
+            fixture.company.id,
+            AssetRootKind::Output,
+            AssetKind::Audio,
+            r"D:\ComfyUI\output\soundtrack.wav",
+        )
+        .await;
+    fixture
+        .insert(
+            fixture.company.id,
+            AssetRootKind::Models,
+            AssetKind::Model,
+            r"D:\ComfyUI\models\checkpoints\portrait.safetensors",
+        )
+        .await;
+    fixture
+        .insert(
+            fixture.company.id,
+            AssetRootKind::Workflows,
+            AssetKind::Workflow,
+            r"D:\ComfyUI\workflows\portrait.json",
+        )
+        .await;
+
+    let commands = AssetQueryCommandService::new(fixture.assets.clone());
+    let page = commands
+        .query(AssetQueryRequest {
+            environment_id: fixture.company.id.to_string(),
+            kind: None,
+            root_kind: None,
+            directory: None,
+            availability: None,
+            search: None,
+            media_only: Some(true),
+            page: Some(1),
+            page_size: Some(50),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(page.total_items, 3);
+    assert_eq!(page.items.len(), 3);
+    assert!(page.items.iter().all(|item| matches!(
+        item.kind,
+        AssetKind::Image | AssetKind::Video | AssetKind::Audio
+    )));
 }
 
 #[tokio::test]
@@ -216,6 +292,8 @@ async fn command_service_applies_defaults_and_returns_stable_serializable_page()
             root_kind: None,
             directory: None,
             availability: Some(AssetAvailability::Present),
+            search: Some("portrait".to_owned()),
+            media_only: None,
             page: None,
             page_size: None,
         })
@@ -243,6 +321,8 @@ async fn command_service_rejects_invalid_ids_and_page_bounds() {
             root_kind: None,
             directory: None,
             availability: None,
+            search: None,
+            media_only: None,
             page: None,
             page_size: None,
         })
@@ -255,6 +335,8 @@ async fn command_service_rejects_invalid_ids_and_page_bounds() {
             root_kind: None,
             directory: None,
             availability: None,
+            search: None,
+            media_only: None,
             page: Some(0),
             page_size: Some(101),
         })
@@ -265,6 +347,46 @@ async fn command_service_rejects_invalid_ids_and_page_bounds() {
     assert!(!invalid_id.retryable);
     assert_eq!(invalid_page.code, "INVALID_ASSET_QUERY");
     assert!(!invalid_page.retryable);
+}
+
+#[tokio::test]
+async fn search_matches_paths_case_insensitively_and_treats_wildcards_literally() {
+    let fixture = QueryFixture::new().await;
+    fixture
+        .insert(
+            fixture.company.id,
+            AssetRootKind::Output,
+            AssetKind::Image,
+            r"D:\ComfyUI\output\Portrait_100%.PNG",
+        )
+        .await;
+    fixture
+        .insert(
+            fixture.company.id,
+            AssetRootKind::Output,
+            AssetKind::Image,
+            r"D:\ComfyUI\output\PortraitX100Y.PNG",
+        )
+        .await;
+
+    let page = fixture
+        .assets
+        .query(&AssetQuery {
+            environment_id: fixture.company.id,
+            kind: None,
+            root_kind: None,
+            directory: None,
+            availability: Some(AssetAvailability::Present),
+            search: Some("portrait_100%".to_owned()),
+            media_only: false,
+            page: 1,
+            page_size: 50,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(page.total_items, 1);
+    assert_eq!(page.items[0].name, "Portrait_100%.PNG");
 }
 
 struct QueryFixture {

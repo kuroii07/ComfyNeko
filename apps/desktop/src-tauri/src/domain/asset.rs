@@ -122,6 +122,8 @@ pub struct AssetQuery {
     pub root_kind: Option<AssetRootKind>,
     pub directory: Option<PathBuf>,
     pub availability: Option<AssetAvailability>,
+    pub search: Option<String>,
+    pub media_only: bool,
     pub page: u32,
     pub page_size: u32,
 }

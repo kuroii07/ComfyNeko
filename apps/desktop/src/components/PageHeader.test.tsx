@@ -15,6 +15,11 @@ describe("PageHeader", () => {
       />
     );
 
+    expect(
+      screen.getByRole("heading", { name: "环境管理" })
+    ).toHaveClass("visually-hidden");
+    expect(screen.getByText("页面说明")).toHaveClass("visually-hidden");
+
     fireEvent.click(screen.getByRole("button", { name: "本页说明" }));
     expect(screen.getByText("本页帮助")).toBeInTheDocument();
 

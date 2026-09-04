@@ -118,6 +118,7 @@ impl AssetRepository {
             .transpose()?
             .map(|(windows, unix)| (Some(String::new()), Some(windows), Some(unix)))
             .unwrap_or((None, None, None));
+        let search_pattern = query.search.as_deref().map(search_pattern).transpose()?;
         let mut transaction = self
             .pool
             .begin()
@@ -130,6 +131,7 @@ impl AssetRepository {
             FROM assets
             WHERE environment_id = ?
               AND (? IS NULL OR kind = ?)
+              AND (? = 0 OR kind IN ('image', 'video', 'audio'))
               AND (? IS NULL OR root_kind = ?)
               AND (? IS NULL OR is_present = ?)
               AND (
@@ -137,11 +139,13 @@ impl AssetRepository {
                     OR normalized_path COLLATE NOCASE LIKE ? ESCAPE '!'
                     OR normalized_path COLLATE NOCASE LIKE ? ESCAPE '!'
               )
+              AND (? IS NULL OR normalized_path COLLATE NOCASE LIKE ? ESCAPE '!')
             "#,
         )
         .bind(&environment_id)
         .bind(&kind)
         .bind(&kind)
+        .bind(query.media_only)
         .bind(&root_kind)
         .bind(&root_kind)
         .bind(availability)
@@ -149,6 +153,8 @@ impl AssetRepository {
         .bind(&directory_marker)
         .bind(&windows_pattern)
         .bind(&unix_pattern)
+        .bind(&search_pattern)
+        .bind(&search_pattern)
         .fetch_one(&mut *transaction)
         .await
         .map_err(AssetRepositoryError::database)?;
@@ -167,6 +173,7 @@ impl AssetRepository {
             FROM assets
             WHERE environment_id = ?
               AND (? IS NULL OR kind = ?)
+              AND (? = 0 OR kind IN ('image', 'video', 'audio'))
               AND (? IS NULL OR root_kind = ?)
               AND (? IS NULL OR is_present = ?)
               AND (
@@ -174,6 +181,7 @@ impl AssetRepository {
                     OR normalized_path COLLATE NOCASE LIKE ? ESCAPE '!'
                     OR normalized_path COLLATE NOCASE LIKE ? ESCAPE '!'
               )
+              AND (? IS NULL OR normalized_path COLLATE NOCASE LIKE ? ESCAPE '!')
             ORDER BY normalized_path COLLATE NOCASE ASC, normalized_path ASC, id ASC
             LIMIT ? OFFSET ?
             "#,
@@ -181,6 +189,7 @@ impl AssetRepository {
         .bind(environment_id)
         .bind(&kind)
         .bind(&kind)
+        .bind(query.media_only)
         .bind(&root_kind)
         .bind(&root_kind)
         .bind(availability)
@@ -188,6 +197,8 @@ impl AssetRepository {
         .bind(directory_marker)
         .bind(windows_pattern)
         .bind(unix_pattern)
+        .bind(&search_pattern)
+        .bind(&search_pattern)
         .bind(limit)
         .bind(offset)
         .fetch_all(&mut *transaction)
@@ -477,6 +488,17 @@ fn directory_patterns(directory: &Path) -> Result<(String, String), AssetReposit
 
     let escaped = escape_like_pattern(trimmed);
     Ok((format!("{escaped}\\%"), format!("{escaped}/%")))
+}
+
+fn search_pattern(search: &str) -> Result<String, AssetRepositoryError> {
+    let trimmed = search.trim();
+    if trimmed.is_empty() {
+        return Err(AssetRepositoryError::data(
+            "asset query search cannot be empty",
+        ));
+    }
+
+    Ok(format!("%{}%", escape_like_pattern(trimmed)))
 }
 
 fn escape_like_pattern(value: &str) -> String {

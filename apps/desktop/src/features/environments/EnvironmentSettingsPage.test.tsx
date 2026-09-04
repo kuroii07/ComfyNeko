@@ -6,7 +6,7 @@ import { EnvironmentSettingsTabs } from "./EnvironmentSettingsTabs";
 import { readyProfile } from "./environmentTestFixtures";
 
 describe("EnvironmentSettingsPage", () => {
-  it("renders the environment heading and four keyboard-accessible tabs", () => {
+  it("keeps the page heading accessible while using a compact context bar", () => {
     render(
       <EnvironmentSettingsPage
         actions={
@@ -25,9 +25,10 @@ describe("EnvironmentSettingsPage", () => {
       </EnvironmentSettingsPage>
     );
 
-    expect(
-      screen.getByRole("heading", { name: "环境设置" })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "环境设置" })).toHaveClass(
+      "visually-hidden"
+    );
+    expect(screen.getByText("公司环境")).toBeInTheDocument();
     expect(
       screen.getByRole("tablist", { name: "环境设置分区" })
     ).toBeInTheDocument();

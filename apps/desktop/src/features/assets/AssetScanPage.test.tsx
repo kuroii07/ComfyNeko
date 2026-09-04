@@ -1,10 +1,18 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
   EnvironmentApi,
   EnvironmentProfile
 } from "../environments/environmentApi";
+import type { AssetPage, AssetQueryApi } from "./assetQueryApi";
 import {
   type AssetScanApi,
   type AssetScanIssue,
@@ -43,6 +51,111 @@ describe("AssetScanPage", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+  });
+
+  it("uses a compact asset-library toolbar without a visible duplicate page title", async () => {
+    const queryApi = createQueryApi();
+
+    render(
+      <AssetScanPage
+        assetQueryApi={queryApi}
+        environmentApi={createEnvironmentApi([officeEnvironment])}
+        scanApi={createScanApi({
+          list: vi.fn().mockResolvedValue([createTask("completed")])
+        })}
+      />
+    );
+
+    const toolbar = await screen.findByRole("toolbar", {
+      name: "资产工具栏"
+    });
+    const scanControls = within(toolbar).getByRole("group", {
+      name: "扫描控制"
+    });
+
+    expect(
+      screen.getByRole("heading", { name: "资产管理" })
+    ).toHaveClass("visually-hidden");
+    expect(
+      within(toolbar).getByRole("searchbox", { name: "搜索资产" })
+    ).toHaveAttribute("placeholder", "搜索文件或路径…");
+    const environmentSelector = within(scanControls).getByRole("combobox", {
+      name: "扫描环境"
+    });
+    expect(environmentSelector).toBeRequired();
+    expect(environmentSelector).toHaveValue("");
+    expect(
+      within(scanControls).getByRole("button", { name: "开始扫描" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "图片" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "视频" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "音频" })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "模型" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "工作流" })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "模型文件" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "工作流程" })).not.toBeInTheDocument();
+    expect(screen.queryByText("已处理目录")).not.toBeInTheDocument();
+    expect(queryApi.query).not.toHaveBeenCalled();
+
+    fireEvent.change(environmentSelector, {
+      target: { value: officeEnvironment.id }
+    });
+
+    await waitFor(() =>
+      expect(queryApi.query).toHaveBeenCalledWith(
+        expect.objectContaining({
+          environment_id: officeEnvironment.id,
+          media_only: true,
+          page: 1,
+          page_size: 50
+        })
+      )
+    );
+  });
+
+  it("keeps completed scan metrics collapsed until the status control is opened", async () => {
+    render(
+      <AssetScanPage
+        assetQueryApi={createQueryApi()}
+        environmentApi={createEnvironmentApi([officeEnvironment])}
+        scanApi={createScanApi({
+          list: vi.fn().mockResolvedValue([
+            createTask("completed", {
+              processed_directories: 37,
+              discovered_assets: 96
+            })
+          ])
+        })}
+      />
+    );
+
+    fireEvent.change(
+      await screen.findByRole("combobox", { name: "扫描环境" }),
+      {
+        target: { value: officeEnvironment.id }
+      }
+    );
+
+    const statusButton = await screen.findByRole("button", {
+      name: "扫描完成，查看扫描详情"
+    });
+    expect(screen.queryByText("已处理目录")).not.toBeInTheDocument();
+
+    fireEvent.click(statusButton);
+
+    expect(screen.getByText("已处理目录")).toBeInTheDocument();
+    expect(screen.getByText("37")).toBeInTheDocument();
+    expect(screen.getByText("96")).toBeInTheDocument();
   });
 
   it("shows a short empty state and opens environment management", async () => {
@@ -213,6 +326,12 @@ describe("AssetScanPage", () => {
       }
     );
 
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "扫描完成，查看扫描详情"
+      })
+    );
+
     expect(
       await screen.findByRole("heading", { level: 2, name: "扫描完成" })
     ).toBeInTheDocument();
@@ -255,6 +374,12 @@ describe("AssetScanPage", () => {
       {
         target: { value: officeEnvironment.id }
       }
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "完成但有问题，查看扫描详情"
+      })
     );
 
     expect(
@@ -411,6 +536,20 @@ function createScanApi(overrides: Partial<AssetScanApi> = {}): AssetScanApi {
     cancel: vi.fn().mockResolvedValue(createTask("paused")),
     resume: vi.fn().mockResolvedValue(createTask("running")),
     ...overrides
+  };
+}
+
+function createQueryApi(
+  page: AssetPage = {
+    items: [],
+    page: 1,
+    page_size: 50,
+    total_items: 0,
+    total_pages: 0
+  }
+): AssetQueryApi {
+  return {
+    query: vi.fn().mockResolvedValue(page)
   };
 }
 

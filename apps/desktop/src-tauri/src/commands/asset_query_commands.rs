@@ -26,6 +26,8 @@ pub struct AssetQueryRequest {
     pub root_kind: Option<AssetRootKind>,
     pub directory: Option<PathBuf>,
     pub availability: Option<AssetAvailability>,
+    pub search: Option<String>,
+    pub media_only: Option<bool>,
     pub page: Option<u32>,
     pub page_size: Option<u32>,
 }
@@ -64,6 +66,16 @@ impl AssetQueryCommandService {
         {
             return Err(invalid_query("目录筛选不能为空"));
         }
+        let search = request
+            .search
+            .map(|value| value.trim().to_owned())
+            .filter(|value| !value.is_empty());
+        if search
+            .as_ref()
+            .is_some_and(|value| value.chars().count() > 200)
+        {
+            return Err(invalid_query("搜索内容不能超过 200 个字符"));
+        }
 
         self.repository
             .query(&AssetQuery {
@@ -72,6 +84,8 @@ impl AssetQueryCommandService {
                 root_kind: request.root_kind,
                 directory: request.directory,
                 availability: request.availability,
+                search,
+                media_only: request.media_only.unwrap_or(false),
                 page,
                 page_size,
             })

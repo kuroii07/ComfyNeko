@@ -1,14 +1,26 @@
 import {
   AlertTriangle,
+  Box,
   CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  FileImage,
+  FileJson,
+  Folder,
+  FolderInput,
+  FolderOutput,
   FolderSearch,
   LoaderCircle,
+  Music2,
   Pause,
   Play,
   RefreshCw,
-  Square
+  Search,
+  Square,
+  Video
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
 
 import { translate, type Locale, type MessageKey } from "../../i18n/translate";
 import {
@@ -16,6 +28,15 @@ import {
   type EnvironmentApi,
   type EnvironmentProfile
 } from "../environments/environmentApi";
+import {
+  tauriAssetQueryApi,
+  type AssetAvailability,
+  type AssetKind,
+  type AssetListItem,
+  type AssetPage,
+  type AssetQueryApi,
+  type AssetRootKind
+} from "./assetQueryApi";
 import {
   tauriAssetScanApi,
   type AssetScanApi,
@@ -25,6 +46,7 @@ import {
 } from "./assetScanApi";
 
 type AssetScanPageProps = {
+  assetQueryApi?: AssetQueryApi;
   environmentApi?: EnvironmentApi;
   locale?: Locale;
   onOpenEnvironments?(): void;
@@ -32,6 +54,7 @@ type AssetScanPageProps = {
 };
 
 type LoadState = "loading" | "ready" | "error";
+type AssetLoadState = "idle" | "loading" | "ready" | "error";
 type ActionKind = "start" | "cancel" | "resume" | null;
 type RequestScope = "environments" | "tasks" | "poll" | "issues" | ActionKind;
 
@@ -41,8 +64,27 @@ type RequestError = {
 };
 
 const POLL_INTERVAL_MS = 800;
+const ASSET_PAGE_SIZE = 50;
+
+const kindFilters: Array<{ value: AssetKind | null; label: MessageKey }> = [
+  { value: null, label: "assets.filter.all" },
+  { value: "image", label: "assets.filter.images" },
+  { value: "video", label: "assets.filter.videos" },
+  { value: "audio", label: "assets.filter.audio" }
+];
+
+const rootFilters: Array<{
+  icon: typeof Folder;
+  value: AssetRootKind | null;
+  label: MessageKey;
+}> = [
+  { icon: FolderSearch, value: null, label: "assets.category.all" },
+  { icon: FolderInput, value: "input", label: "assets.category.input" },
+  { icon: FolderOutput, value: "output", label: "assets.category.output" }
+];
 
 export function AssetScanPage({
+  assetQueryApi = tauriAssetQueryApi,
   environmentApi = tauriEnvironmentApi,
   locale = "zh-CN",
   onOpenEnvironments,
@@ -58,8 +100,25 @@ export function AssetScanPage({
   const [issues, setIssues] = useState<AssetScanIssue[]>([]);
   const [actionKind, setActionKind] = useState<ActionKind>(null);
   const [requestError, setRequestError] = useState<RequestError | null>(null);
+  const [assetPage, setAssetPage] = useState<AssetPage>(() =>
+    createEmptyAssetPage()
+  );
+  const [assetLoadState, setAssetLoadState] =
+    useState<AssetLoadState>("idle");
+  const [assetRequestError, setAssetRequestError] = useState<string | null>(
+    null
+  );
+  const [assetQueryRevision, setAssetQueryRevision] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [kindFilter, setKindFilter] = useState<AssetKind | null>(null);
+  const [rootFilter, setRootFilter] = useState<AssetRootKind | null>(null);
+  const [availabilityFilter, setAvailabilityFilter] =
+    useState<AssetAvailability | null>("present");
+  const [assetPageNumber, setAssetPageNumber] = useState(1);
+  const [scanDetailsOpen, setScanDetailsOpen] = useState(false);
   const selectionGenerationRef = useRef(0);
   const pollGenerationRef = useRef(0);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
 
   useEffect(() => {
     let active = true;
@@ -161,6 +220,8 @@ export function AssetScanPage({
         setTask(nextTask);
         if (isPollingStatus(nextTask.status)) {
           timeoutId = window.setTimeout(poll, POLL_INTERVAL_MS);
+        } else {
+          setAssetQueryRevision((current) => current + 1);
         }
       } catch (error) {
         if (generation !== pollGenerationRef.current) {
@@ -216,6 +277,64 @@ export function AssetScanPage({
       active = false;
     };
   }, [scanApi, task?.id, task?.issue_count]);
+
+  useEffect(() => {
+    setAssetPageNumber(1);
+    setScanDetailsOpen(false);
+  }, [selectedEnvironmentId]);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!selectedEnvironmentId) {
+      setAssetPage(createEmptyAssetPage());
+      setAssetLoadState("idle");
+      setAssetRequestError(null);
+      return;
+    }
+
+    setAssetLoadState("loading");
+    setAssetRequestError(null);
+    void assetQueryApi
+      .query({
+        environment_id: selectedEnvironmentId,
+        kind: kindFilter,
+        root_kind: rootFilter,
+        directory: null,
+        availability: availabilityFilter,
+        search: deferredSearchQuery,
+        media_only: true,
+        page: assetPageNumber,
+        page_size: ASSET_PAGE_SIZE
+      })
+      .then((nextPage) => {
+        if (!active) {
+          return;
+        }
+        setAssetPage(nextPage);
+        setAssetLoadState("ready");
+      })
+      .catch((error) => {
+        if (!active) {
+          return;
+        }
+        setAssetLoadState("error");
+        setAssetRequestError(toErrorMessage(error));
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    assetPageNumber,
+    assetQueryApi,
+    assetQueryRevision,
+    availabilityFilter,
+    deferredSearchQuery,
+    kindFilter,
+    rootFilter,
+    selectedEnvironmentId
+  ]);
 
   async function runAction(
     kind: Exclude<ActionKind, null>,
@@ -273,13 +392,12 @@ export function AssetScanPage({
 
   if (environmentLoadState === "loading") {
     return (
-      <section className="asset-scan-page">
-        <AssetScanHeader locale={locale} task={null} />
-        <div
-          aria-live="polite"
-          className="asset-scan__message"
-          role="status"
-        >
+      <section
+        aria-label={translate(locale, "assets.title")}
+        className="asset-library-page"
+      >
+        <h1 className="visually-hidden">{translate(locale, "assets.title")}</h1>
+        <div aria-live="polite" className="asset-library__notice" role="status">
           <LoaderCircle aria-hidden="true" className="spin" />
           <div>
             <strong>{translate(locale, "assets.environment.loading")}</strong>
@@ -292,8 +410,11 @@ export function AssetScanPage({
 
   if (environmentLoadState === "error") {
     return (
-      <section className="asset-scan-page">
-        <AssetScanHeader locale={locale} task={null} />
+      <section
+        aria-label={translate(locale, "assets.title")}
+        className="asset-library-page"
+      >
+        <h1 className="visually-hidden">{translate(locale, "assets.title")}</h1>
         <RequestErrorMessage
           error={requestError}
           locale={locale}
@@ -305,9 +426,12 @@ export function AssetScanPage({
 
   if (environments.length === 0) {
     return (
-      <section className="asset-scan-page">
-        <AssetScanHeader locale={locale} task={null} />
-        <div className="asset-scan__message asset-scan__message--empty">
+      <section
+        aria-label={translate(locale, "assets.title")}
+        className="asset-library-page"
+      >
+        <h1 className="visually-hidden">{translate(locale, "assets.title")}</h1>
+        <div className="asset-library__notice">
           <FolderSearch aria-hidden="true" />
           <div>
             <strong>{translate(locale, "assets.environment.emptyTitle")}</strong>
@@ -325,13 +449,42 @@ export function AssetScanPage({
     );
   }
 
-  return (
-    <section className="asset-scan-page">
-      <AssetScanHeader locale={locale} task={task} />
+  const status = task?.status ?? "idle";
+  const statusKey = `assets.status.${status}` as MessageKey;
+  const scanDetailsVisible =
+    task !== null && (scanDetailsOpen || isPollingStatus(task.status));
 
-      <div className="asset-scan__controls">
-        <label className="asset-scan__environment-field">
-          <span>{translate(locale, "assets.environment.label")}</span>
+  return (
+    <section
+      aria-label={translate(locale, "assets.title")}
+      className="asset-library-page"
+    >
+      <h1 className="visually-hidden">{translate(locale, "assets.title")}</h1>
+
+      <header
+        aria-label={translate(locale, "assets.toolbar")}
+        className="asset-library__toolbar"
+        role="toolbar"
+      >
+        <label className="asset-library__search">
+          <Search aria-hidden="true" />
+          <input
+            aria-label={translate(locale, "assets.search.label")}
+            placeholder={translate(locale, "assets.search.placeholder")}
+            type="search"
+            value={searchQuery}
+            onChange={(event) => {
+              setSearchQuery(event.target.value);
+              setAssetPageNumber(1);
+            }}
+          />
+        </label>
+
+        <div
+          aria-label={translate(locale, "assets.scanControls")}
+          className="asset-library__scan-controls"
+          role="group"
+        >
           <select
             aria-label={translate(locale, "assets.environment.label")}
             disabled={actionKind !== null}
@@ -348,10 +501,7 @@ export function AssetScanPage({
               </option>
             ))}
           </select>
-          <small>{translate(locale, "assets.environment.help")}</small>
-        </label>
 
-        <div className="asset-scan__actions">
           <TaskAction
             actionKind={actionKind}
             locale={locale}
@@ -373,94 +523,154 @@ export function AssetScanPage({
               )
             }
           />
+          {task ? (
+            <button
+              aria-expanded={scanDetailsVisible}
+              aria-label={`${translate(locale, statusKey)}，${translate(
+                locale,
+                scanDetailsVisible
+                  ? "assets.scanDetails.close"
+                  : "assets.scanDetails.open"
+              )}`}
+              className="asset-library__scan-status"
+              data-status={status}
+              type="button"
+              onClick={() => setScanDetailsOpen((current) => !current)}
+            >
+              <span aria-hidden="true" />
+              <span>{translate(locale, statusKey)}</span>
+              <ChevronDown aria-hidden="true" />
+            </button>
+          ) : (
+            <span className="asset-library__scan-status" data-status="idle">
+              <span aria-hidden="true" />
+              {translate(locale, statusKey)}
+            </span>
+          )}
         </div>
-      </div>
 
-      {requestError ? (
-        <RequestErrorMessage
-          error={requestError}
-          locale={locale}
-          onRetry={retryRequest}
-        />
-      ) : null}
+        <label className="asset-library__availability">
+          <span className="visually-hidden">
+            {translate(locale, "assets.availability.label")}
+          </span>
+          <select
+            aria-label={translate(locale, "assets.availability.label")}
+            value={availabilityFilter ?? "all"}
+            onChange={(event) => {
+              setAvailabilityFilter(
+                event.target.value === "all"
+                  ? null
+                  : (event.target.value as AssetAvailability)
+              );
+              setAssetPageNumber(1);
+            }}
+          >
+            <option value="all">
+              {translate(locale, "assets.availability.all")}
+            </option>
+            <option value="present">
+              {translate(locale, "assets.availability.present")}
+            </option>
+            <option value="missing">
+              {translate(locale, "assets.availability.missing")}
+            </option>
+          </select>
+        </label>
+      </header>
 
-      <div aria-live="polite" className="asset-scan__status-region">
-        {!selectedEnvironmentId ? (
-          <div className="asset-scan__message asset-scan__message--idle">
-            <FolderSearch aria-hidden="true" />
-            <div>
-              <strong>{translate(locale, "assets.status.chooseEnvironment")}</strong>
-              <p>{translate(locale, "assets.status.chooseEnvironmentHelp")}</p>
-            </div>
-          </div>
-        ) : task ? (
-          <TaskDetails locale={locale} task={task} />
-        ) : (
-          <div className="asset-scan__message asset-scan__message--idle">
-            <FolderSearch aria-hidden="true" />
-            <div>
-              <strong>{translate(locale, "assets.status.noTask")}</strong>
-              <p>{translate(locale, "assets.status.noTaskHelp")}</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {issues.length > 0 ? (
-        <section
-          aria-labelledby="asset-scan-issues-title"
-          className="asset-scan__issues"
+      <div className="asset-library__quickbar">
+        <div
+          aria-label={translate(locale, "assets.filter.label")}
+          className="asset-library__kind-filters"
+          role="group"
         >
-          <div className="asset-scan__section-heading">
-            <AlertTriangle aria-hidden="true" />
-            <div>
-              <h2 id="asset-scan-issues-title">
-                {translate(locale, "assets.issues.title")}
-              </h2>
-              <p>
-                {translate(locale, "assets.issues.description").replace(
-                  "{count}",
-                  String(task?.issue_count ?? issues.length)
-                )}
-              </p>
-            </div>
-          </div>
-          <ul>
-            {issues.map((issue) => (
-              <li key={issue.id}>
-                <strong>{issue.message}</strong>
-                <span title={issue.path}>{issue.path}</span>
-                <small>{issue.code}</small>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-    </section>
-  );
-}
-
-function AssetScanHeader({
-  locale,
-  task
-}: {
-  locale: Locale;
-  task: AssetScanTask | null;
-}) {
-  const status = task?.status ?? "idle";
-  const statusKey = `assets.status.${status}` as MessageKey;
-
-  return (
-    <header className="asset-scan__header">
-      <div className="asset-scan__heading">
-        <h1>{translate(locale, "assets.title")}</h1>
-        <p>{translate(locale, "assets.description")}</p>
+          {kindFilters.map((filter) => (
+            <button
+              aria-pressed={kindFilter === filter.value}
+              key={filter.value ?? "all"}
+              type="button"
+              onClick={() => {
+                setKindFilter(filter.value);
+                setAssetPageNumber(1);
+              }}
+            >
+              {translate(locale, filter.label)}
+            </button>
+          ))}
+        </div>
+        <span aria-live="polite" className="asset-library__total">
+          {translate(locale, "assets.total").replace(
+            "{count}",
+            String(assetPage.total_items)
+          )}
+        </span>
       </div>
-      <span className="asset-scan__status" data-status={status}>
-        <span aria-hidden="true" />
-        {translate(locale, statusKey)}
-      </span>
-    </header>
+
+      {requestError || (scanDetailsVisible && task) ? (
+        <div className="asset-library__overlay-stack">
+          {requestError ? (
+            <RequestErrorMessage
+              error={requestError}
+              locale={locale}
+              onRetry={retryRequest}
+            />
+          ) : null}
+          {scanDetailsVisible && task ? (
+            <div className="asset-library__scan-details">
+              <TaskDetails locale={locale} task={task} />
+              {issues.length > 0 ? (
+                <ScanIssues issues={issues} locale={locale} task={task} />
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="asset-library__body">
+        <nav
+          aria-label={translate(locale, "assets.category.label")}
+          className="asset-library__categories"
+        >
+          {rootFilters.map(({ icon: Icon, label, value }) => (
+            <button
+              aria-current={rootFilter === value ? "page" : undefined}
+              key={value ?? "all"}
+              type="button"
+              onClick={() => {
+                setRootFilter(value);
+                setAssetPageNumber(1);
+              }}
+            >
+              <Icon aria-hidden="true" />
+              <span>{translate(locale, label)}</span>
+              {rootFilter === value ? <small>{assetPage.total_items}</small> : null}
+            </button>
+          ))}
+        </nav>
+
+        <section
+          aria-label={translate(locale, "assets.collection")}
+          className="asset-library__collection"
+        >
+          <AssetCollection
+            assetPage={assetPage}
+            error={assetRequestError}
+            loadState={assetLoadState}
+            locale={locale}
+            selectedEnvironmentId={selectedEnvironmentId}
+            onNext={() =>
+              setAssetPageNumber((current) =>
+                Math.min(current + 1, assetPage.total_pages || 1)
+              )
+            }
+            onPrevious={() =>
+              setAssetPageNumber((current) => Math.max(1, current - 1))
+            }
+            onRetry={() => setAssetQueryRevision((current) => current + 1)}
+          />
+        </section>
+      </div>
+    </section>
   );
 }
 
@@ -650,6 +860,202 @@ function TaskDetails({
   );
 }
 
+function ScanIssues({
+  issues,
+  locale,
+  task
+}: {
+  issues: AssetScanIssue[];
+  locale: Locale;
+  task: AssetScanTask;
+}) {
+  return (
+    <section
+      aria-labelledby="asset-scan-issues-title"
+      className="asset-scan__issues"
+    >
+      <div className="asset-scan__section-heading">
+        <AlertTriangle aria-hidden="true" />
+        <div>
+          <h2 id="asset-scan-issues-title">
+            {translate(locale, "assets.issues.title")}
+          </h2>
+          <p>
+            {translate(locale, "assets.issues.description").replace(
+              "{count}",
+              String(task.issue_count || issues.length)
+            )}
+          </p>
+        </div>
+      </div>
+      <ul>
+        {issues.map((issue) => (
+          <li key={issue.id}>
+            <strong>{issue.message}</strong>
+            <span title={issue.path}>{issue.path}</span>
+            <small>{issue.code}</small>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function AssetCollection({
+  assetPage,
+  error,
+  loadState,
+  locale,
+  onNext,
+  onPrevious,
+  onRetry,
+  selectedEnvironmentId
+}: {
+  assetPage: AssetPage;
+  error: string | null;
+  loadState: AssetLoadState;
+  locale: Locale;
+  onNext(): void;
+  onPrevious(): void;
+  onRetry(): void;
+  selectedEnvironmentId: string;
+}) {
+  if (!selectedEnvironmentId) {
+    return (
+      <div className="asset-library__empty">
+        <FolderSearch aria-hidden="true" />
+        <strong>{translate(locale, "assets.status.chooseEnvironment")}</strong>
+        <span>{translate(locale, "assets.status.chooseEnvironmentHelp")}</span>
+      </div>
+    );
+  }
+
+  if (loadState === "loading") {
+    return (
+      <div
+        aria-label={translate(locale, "assets.collection.loading")}
+        className="asset-library__grid"
+        role="status"
+      >
+        {Array.from({ length: 8 }).map((_, index) => (
+          <div className="asset-card asset-card--loading" key={index}>
+            <span />
+            <span />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (loadState === "error") {
+    return (
+      <div className="asset-library__empty" role="alert">
+        <AlertTriangle aria-hidden="true" />
+        <strong>{translate(locale, "assets.collection.error")}</strong>
+        {error ? <span title={error}>{error}</span> : null}
+        <button
+          className="button-compact button-secondary"
+          type="button"
+          onClick={onRetry}
+        >
+          <RefreshCw aria-hidden="true" />
+          {translate(locale, "assets.action.retry")}
+        </button>
+      </div>
+    );
+  }
+
+  if (assetPage.items.length === 0) {
+    return (
+      <div className="asset-library__empty">
+        <Folder aria-hidden="true" />
+        <strong>{translate(locale, "assets.collection.empty")}</strong>
+        <span>{translate(locale, "assets.collection.emptyHelp")}</span>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="asset-library__grid" role="list">
+        {assetPage.items.map((asset) => (
+          <AssetCard asset={asset} key={asset.id} locale={locale} />
+        ))}
+      </div>
+      {assetPage.total_pages > 1 ? (
+        <nav
+          aria-label={translate(locale, "assets.pagination.label")}
+          className="asset-library__pagination"
+        >
+          <button
+            aria-label={translate(locale, "assets.pagination.previous")}
+            disabled={assetPage.page <= 1}
+            type="button"
+            onClick={onPrevious}
+          >
+            <ChevronLeft aria-hidden="true" />
+          </button>
+          <span>
+            {translate(locale, "assets.pagination.summary")
+              .replace("{page}", String(assetPage.page))
+              .replace("{pages}", String(assetPage.total_pages))}
+          </span>
+          <button
+            aria-label={translate(locale, "assets.pagination.next")}
+            disabled={assetPage.page >= assetPage.total_pages}
+            type="button"
+            onClick={onNext}
+          >
+            <ChevronRight aria-hidden="true" />
+          </button>
+        </nav>
+      ) : null}
+    </>
+  );
+}
+
+function AssetCard({
+  asset,
+  locale
+}: {
+  asset: AssetListItem;
+  locale: Locale;
+}) {
+  const Icon =
+    asset.kind === "image"
+      ? FileImage
+      : asset.kind === "video"
+        ? Video
+        : asset.kind === "audio"
+          ? Music2
+          : asset.kind === "workflow"
+            ? FileJson
+            : Box;
+
+  return (
+    <article
+      className="asset-card"
+      data-availability={asset.availability}
+      role="listitem"
+    >
+      <div className="asset-card__preview">
+        <Icon aria-hidden="true" />
+        <span>{translate(locale, assetKindLabelKey(asset.kind))}</span>
+      </div>
+      <div className="asset-card__body">
+        <strong title={asset.name}>{asset.name}</strong>
+        <span title={asset.directory}>
+          {formatBytes(asset.size_bytes)} ·{" "}
+          {translate(locale, rootKindLabelKey(asset.root_kind))}
+        </span>
+      </div>
+      {asset.availability === "missing" ? (
+        <small>{translate(locale, "assets.availability.missing")}</small>
+      ) : null}
+    </article>
+  );
+}
+
 function Metric({ label, value }: { label: string; value: number }) {
   return (
     <div>
@@ -657,6 +1063,44 @@ function Metric({ label, value }: { label: string; value: number }) {
       <dd>{value}</dd>
     </div>
   );
+}
+
+function createEmptyAssetPage(): AssetPage {
+  return {
+    items: [],
+    page: 1,
+    page_size: ASSET_PAGE_SIZE,
+    total_items: 0,
+    total_pages: 0
+  };
+}
+
+function assetKindLabelKey(kind: AssetKind): MessageKey {
+  const keys: Record<AssetKind, MessageKey> = {
+    audio: "assets.filter.audio",
+    image: "assets.filter.images",
+    model: "assets.filter.models",
+    video: "assets.filter.videos",
+    workflow: "assets.filter.workflows"
+  };
+  return keys[kind];
+}
+
+function rootKindLabelKey(rootKind: AssetRootKind): MessageKey {
+  return `assets.category.${rootKind}` as MessageKey;
+}
+
+function formatBytes(size: number): string {
+  if (size < 1024) {
+    return `${size} B`;
+  }
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`;
+  }
+  if (size < 1024 * 1024 * 1024) {
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 function RequestErrorMessage({

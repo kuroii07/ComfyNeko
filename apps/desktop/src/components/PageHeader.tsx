@@ -28,10 +28,10 @@ export function PageHeader({
   }
 
   return (
-    <header className="settings-page__header">
-      <div className="settings-page__heading">
-        <h1>{title}</h1>
-        <p>{description}</p>
+    <header className="page-toolbar">
+      <div>
+        <h1 className="visually-hidden">{title}</h1>
+        <p className="visually-hidden">{description}</p>
       </div>
       <div className="page-header__actions">
         <Tooltip label={translate(locale, "common.pageHelp")}>

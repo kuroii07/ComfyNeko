@@ -60,27 +60,27 @@ export function EnvironmentSettingsPage({
       data-active-tab={activeTab}
     >
       <header className="environment-settings-page__header">
-        <div className="environment-settings-page__identity">
-          <div className="environment-settings-page__title-row">
-            <h1>{translate(locale, "environment.settingsTitle")}</h1>
-            <div
-              className="environment-settings-page__state"
-              data-status={status}
-              role="status"
-            >
-              <StatusIcon
-                aria-hidden="true"
-                className={
-                  status === "probing" || status === "saving" ? "spin" : undefined
-                }
-              />
-              <span>{translate(locale, statusKey)}</span>
-            </div>
-          </div>
-          <p>
+        <h1 className="visually-hidden">
+          {translate(locale, "environment.settingsTitle")}
+        </h1>
+        <div className="environment-settings-page__context">
+          <strong title={profile.name}>
             {profile.name.trim() ||
               translate(locale, "environment.profile.unnamed")}
-          </p>
+          </strong>
+          <div
+            className="environment-settings-page__state"
+            data-status={status}
+            role="status"
+          >
+            <StatusIcon
+              aria-hidden="true"
+              className={
+                status === "probing" || status === "saving" ? "spin" : undefined
+              }
+            />
+            <span>{translate(locale, statusKey)}</span>
+          </div>
         </div>
 
         <EnvironmentSettingsTabs
