@@ -67,6 +67,30 @@ impl AssetRootKind {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AssetAvailability {
+    Present,
+    Missing,
+}
+
+impl AssetAvailability {
+    pub const fn as_database_value(self) -> i64 {
+        match self {
+            Self::Present => 1,
+            Self::Missing => 0,
+        }
+    }
+
+    pub fn from_database_value(value: i64) -> Option<Self> {
+        match value {
+            1 => Some(Self::Present),
+            0 => Some(Self::Missing),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AssetScanRoot {
     pub kind: AssetRootKind,
@@ -89,6 +113,44 @@ pub struct AssetRecord {
     pub observation: AssetObservation,
     pub fingerprint: Option<String>,
     pub indexed_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssetQuery {
+    pub environment_id: Uuid,
+    pub kind: Option<AssetKind>,
+    pub root_kind: Option<AssetRootKind>,
+    pub directory: Option<PathBuf>,
+    pub availability: Option<AssetAvailability>,
+    pub page: u32,
+    pub page_size: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AssetListItem {
+    pub id: Uuid,
+    pub environment_id: Uuid,
+    pub root_kind: AssetRootKind,
+    pub kind: AssetKind,
+    pub name: String,
+    pub directory: PathBuf,
+    pub normalized_path: PathBuf,
+    pub size_bytes: u64,
+    pub modified_at: Option<DateTime<Utc>>,
+    pub fingerprint: Option<String>,
+    pub indexed_at: DateTime<Utc>,
+    pub last_seen_at: Option<DateTime<Utc>>,
+    pub availability: AssetAvailability,
+    pub missing_since: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AssetPage {
+    pub items: Vec<AssetListItem>,
+    pub page: u32,
+    pub page_size: u32,
+    pub total_items: u64,
+    pub total_pages: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -9,7 +9,8 @@ use sqlx::{sqlite::SqliteRow, Row, Sqlite, SqlitePool, Transaction};
 use uuid::Uuid;
 
 use crate::domain::asset::{
-    AssetKind, AssetObservation, AssetRecord, AssetRootKind, AssetUpsertOutcome,
+    AssetAvailability, AssetKind, AssetListItem, AssetObservation, AssetPage, AssetQuery,
+    AssetRecord, AssetRootKind, AssetUpsertOutcome,
 };
 
 use super::{database::AppDatabase, migrations};
@@ -97,6 +98,122 @@ impl AssetRepository {
         .map_err(AssetRepositoryError::database)?;
 
         rows.into_iter().map(AssetRecord::try_from).collect()
+    }
+
+    pub async fn query(&self, query: &AssetQuery) -> Result<AssetPage, AssetRepositoryError> {
+        if query.page == 0 || query.page_size == 0 {
+            return Err(AssetRepositoryError::data(
+                "asset query page and page size must be greater than zero",
+            ));
+        }
+
+        let environment_id = query.environment_id.to_string();
+        let kind = query.kind.map(|value| value.as_str().to_owned());
+        let root_kind = query.root_kind.map(|value| value.as_str().to_owned());
+        let availability = query.availability.map(AssetAvailability::as_database_value);
+        let (directory_marker, windows_pattern, unix_pattern) = query
+            .directory
+            .as_ref()
+            .map(|directory| directory_patterns(directory))
+            .transpose()?
+            .map(|(windows, unix)| (Some(String::new()), Some(windows), Some(unix)))
+            .unwrap_or((None, None, None));
+        let mut transaction = self
+            .pool
+            .begin()
+            .await
+            .map_err(AssetRepositoryError::database)?;
+
+        let total_items = sqlx::query_scalar::<_, i64>(
+            r#"
+            SELECT COUNT(*)
+            FROM assets
+            WHERE environment_id = ?
+              AND (? IS NULL OR kind = ?)
+              AND (? IS NULL OR root_kind = ?)
+              AND (? IS NULL OR is_present = ?)
+              AND (
+                    ? IS NULL
+                    OR normalized_path COLLATE NOCASE LIKE ? ESCAPE '!'
+                    OR normalized_path COLLATE NOCASE LIKE ? ESCAPE '!'
+              )
+            "#,
+        )
+        .bind(&environment_id)
+        .bind(&kind)
+        .bind(&kind)
+        .bind(&root_kind)
+        .bind(&root_kind)
+        .bind(availability)
+        .bind(availability)
+        .bind(&directory_marker)
+        .bind(&windows_pattern)
+        .bind(&unix_pattern)
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(AssetRepositoryError::database)?;
+        let total_items = u64::try_from(total_items).map_err(AssetRepositoryError::data)?;
+        let offset = u64::from(query.page - 1)
+            .checked_mul(u64::from(query.page_size))
+            .ok_or_else(|| AssetRepositoryError::data("asset query offset overflow"))?;
+        let limit = i64::from(query.page_size);
+        let offset = i64::try_from(offset).map_err(AssetRepositoryError::data)?;
+
+        let rows = sqlx::query(
+            r#"
+            SELECT id, environment_id, root_kind, kind, normalized_path, size_bytes,
+                   modified_at, fingerprint, indexed_at, last_seen_at, is_present,
+                   missing_since
+            FROM assets
+            WHERE environment_id = ?
+              AND (? IS NULL OR kind = ?)
+              AND (? IS NULL OR root_kind = ?)
+              AND (? IS NULL OR is_present = ?)
+              AND (
+                    ? IS NULL
+                    OR normalized_path COLLATE NOCASE LIKE ? ESCAPE '!'
+                    OR normalized_path COLLATE NOCASE LIKE ? ESCAPE '!'
+              )
+            ORDER BY normalized_path COLLATE NOCASE ASC, normalized_path ASC, id ASC
+            LIMIT ? OFFSET ?
+            "#,
+        )
+        .bind(environment_id)
+        .bind(&kind)
+        .bind(&kind)
+        .bind(&root_kind)
+        .bind(&root_kind)
+        .bind(availability)
+        .bind(availability)
+        .bind(directory_marker)
+        .bind(windows_pattern)
+        .bind(unix_pattern)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(AssetRepositoryError::database)?;
+        transaction
+            .commit()
+            .await
+            .map_err(AssetRepositoryError::database)?;
+        let items = rows
+            .into_iter()
+            .map(AssetListItem::try_from)
+            .collect::<Result<Vec<_>, _>>()?;
+        let total_pages = if total_items == 0 {
+            0
+        } else {
+            total_items.div_ceil(u64::from(query.page_size))
+        };
+
+        Ok(AssetPage {
+            items,
+            page: query.page,
+            page_size: query.page_size,
+            total_items,
+            total_pages,
+        })
     }
 }
 
@@ -274,6 +391,111 @@ impl TryFrom<SqliteRow> for AssetRecord {
                 .map_err(AssetRepositoryError::data)?,
         })
     }
+}
+
+impl TryFrom<SqliteRow> for AssetListItem {
+    type Error = AssetRepositoryError;
+
+    fn try_from(row: SqliteRow) -> Result<Self, Self::Error> {
+        let id: String = row.try_get("id").map_err(AssetRepositoryError::database)?;
+        let environment_id: String = row
+            .try_get("environment_id")
+            .map_err(AssetRepositoryError::database)?;
+        let root_kind: String = row
+            .try_get("root_kind")
+            .map_err(AssetRepositoryError::database)?;
+        let kind: String = row
+            .try_get("kind")
+            .map_err(AssetRepositoryError::database)?;
+        let normalized_path = PathBuf::from(
+            row.try_get::<String, _>("normalized_path")
+                .map_err(AssetRepositoryError::database)?,
+        );
+        let size_bytes: i64 = row
+            .try_get("size_bytes")
+            .map_err(AssetRepositoryError::database)?;
+        let modified_at: Option<String> = row
+            .try_get("modified_at")
+            .map_err(AssetRepositoryError::database)?;
+        let indexed_at: String = row
+            .try_get("indexed_at")
+            .map_err(AssetRepositoryError::database)?;
+        let last_seen_at: Option<String> = row
+            .try_get("last_seen_at")
+            .map_err(AssetRepositoryError::database)?;
+        let is_present: i64 = row
+            .try_get("is_present")
+            .map_err(AssetRepositoryError::database)?;
+        let missing_since: Option<String> = row
+            .try_get("missing_since")
+            .map_err(AssetRepositoryError::database)?;
+        let name = normalized_path
+            .file_name()
+            .map(|value| value.to_string_lossy().into_owned())
+            .ok_or_else(|| AssetRepositoryError::data("asset path has no file name"))?;
+        let directory = normalized_path
+            .parent()
+            .map(Path::to_path_buf)
+            .ok_or_else(|| AssetRepositoryError::data("asset path has no parent directory"))?;
+
+        Ok(Self {
+            id: Uuid::parse_str(&id).map_err(AssetRepositoryError::data)?,
+            environment_id: Uuid::parse_str(&environment_id).map_err(AssetRepositoryError::data)?,
+            root_kind: AssetRootKind::parse(&root_kind).ok_or_else(|| {
+                AssetRepositoryError::data(format!("unknown asset root kind: {root_kind}"))
+            })?,
+            kind: AssetKind::parse(&kind)
+                .ok_or_else(|| AssetRepositoryError::data(format!("unknown asset kind: {kind}")))?,
+            name,
+            directory,
+            normalized_path,
+            size_bytes: u64::try_from(size_bytes).map_err(AssetRepositoryError::data)?,
+            modified_at: parse_optional_timestamp(modified_at)?,
+            fingerprint: row
+                .try_get("fingerprint")
+                .map_err(AssetRepositoryError::database)?,
+            indexed_at: parse_timestamp(indexed_at)?,
+            last_seen_at: parse_optional_timestamp(last_seen_at)?,
+            availability: AssetAvailability::from_database_value(is_present).ok_or_else(|| {
+                AssetRepositoryError::data(format!(
+                    "unknown asset availability value: {is_present}"
+                ))
+            })?,
+            missing_since: parse_optional_timestamp(missing_since)?,
+        })
+    }
+}
+
+fn directory_patterns(directory: &Path) -> Result<(String, String), AssetRepositoryError> {
+    let path = directory.to_string_lossy();
+    let trimmed = path.trim().trim_end_matches(['\\', '/']);
+    if trimmed.is_empty() {
+        return Err(AssetRepositoryError::data(
+            "asset query directory cannot be empty",
+        ));
+    }
+
+    let escaped = escape_like_pattern(trimmed);
+    Ok((format!("{escaped}\\%"), format!("{escaped}/%")))
+}
+
+fn escape_like_pattern(value: &str) -> String {
+    value
+        .replace('!', "!!")
+        .replace('%', "!%")
+        .replace('_', "!_")
+}
+
+fn parse_timestamp(value: String) -> Result<DateTime<Utc>, AssetRepositoryError> {
+    DateTime::parse_from_rfc3339(&value)
+        .map(|time| time.with_timezone(&Utc))
+        .map_err(AssetRepositoryError::data)
+}
+
+fn parse_optional_timestamp(
+    value: Option<String>,
+) -> Result<Option<DateTime<Utc>>, AssetRepositoryError> {
+    value.map(parse_timestamp).transpose()
 }
 
 fn size_for_database(size_bytes: u64) -> Result<i64, AssetRepositoryError> {

@@ -5,8 +5,13 @@ pub mod services;
 
 use std::{fs, io};
 
-use commands::{tauri_commands, AssetScanCommandService, EnvironmentCommandService};
-use repositories::{database::AppDatabase, environment_repository::EnvironmentRepository};
+use commands::{
+    tauri_commands, AssetQueryCommandService, AssetScanCommandService, EnvironmentCommandService,
+};
+use repositories::{
+    asset_repository::AssetRepository, database::AppDatabase,
+    environment_repository::EnvironmentRepository,
+};
 use services::asset_scan_service::AssetScanService;
 use tauri::Manager;
 
@@ -16,7 +21,7 @@ pub fn run() {
         .setup(|app| {
             let app_data_dir = app.path().app_local_data_dir()?;
             fs::create_dir_all(&app_data_dir)?;
-            let (environment_commands, asset_scan_commands) =
+            let (environment_commands, asset_scan_commands, asset_query_commands) =
                 tauri::async_runtime::block_on(async {
                     let database = AppDatabase::connect_file(app_data_dir.join("comfyneko.db"))
                         .await
@@ -27,6 +32,10 @@ pub fn run() {
                             .map_err(|error| error.to_string())?;
                     let environment_commands =
                         EnvironmentCommandService::new(environment_repository);
+                    let asset_repository = AssetRepository::from_pool(database.pool().clone())
+                        .await
+                        .map_err(|error| error.to_string())?;
+                    let asset_query_commands = AssetQueryCommandService::new(asset_repository);
                     let scan_service = AssetScanService::from_database(database)
                         .await
                         .map_err(|error| error.to_string())?;
@@ -36,11 +45,16 @@ pub fn run() {
                         .await
                         .map_err(|error| error.message)?;
 
-                    Ok::<_, String>((environment_commands, asset_scan_commands))
+                    Ok::<_, String>((
+                        environment_commands,
+                        asset_scan_commands,
+                        asset_query_commands,
+                    ))
                 })
                 .map_err(io::Error::other)?;
             app.manage(environment_commands);
             app.manage(asset_scan_commands);
+            app.manage(asset_query_commands);
 
             Ok(())
         })
@@ -55,7 +69,8 @@ pub fn run() {
             tauri_commands::list_asset_scan_tasks,
             tauri_commands::list_asset_scan_issues,
             tauri_commands::cancel_asset_scan,
-            tauri_commands::resume_asset_scan
+            tauri_commands::resume_asset_scan,
+            tauri_commands::query_assets
         ])
         .run(tauri::generate_context!())
         .expect("运行 ComfyNeko 桌面应用失败");

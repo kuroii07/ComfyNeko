@@ -3,8 +3,12 @@ use std::{path::PathBuf, time::Duration};
 use tauri::State;
 
 use crate::{
-    commands::{AssetScanCommandService, CommandErrorPayload, EnvironmentCommandService},
+    commands::{
+        AssetQueryCommandService, AssetQueryRequest, AssetScanCommandService, CommandErrorPayload,
+        EnvironmentCommandService,
+    },
     domain::{
+        asset::AssetPage,
         asset_scan::{AssetScanIssue, AssetScanTaskSnapshot},
         environment::EnvironmentProfile,
     },
@@ -116,6 +120,14 @@ pub async fn resume_asset_scan(
     commands: State<'_, AssetScanCommandService>,
 ) -> Result<AssetScanTaskSnapshot, CommandErrorPayload> {
     commands.resume(parse_uuid(&task_id)?).await
+}
+
+#[tauri::command]
+pub async fn query_assets(
+    request: AssetQueryRequest,
+    commands: State<'_, AssetQueryCommandService>,
+) -> Result<AssetPage, CommandErrorPayload> {
+    commands.query(request).await
 }
 
 fn parse_uuid(value: &str) -> Result<uuid::Uuid, CommandErrorPayload> {
