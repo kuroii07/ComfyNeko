@@ -141,9 +141,10 @@ pub async fn upsert_png_metadata(
 pub async fn get(&self, asset_id: Uuid) -> Result<AssetDetail, AssetDetailError>;
 ```
 
-服务只从允许的 PNG 路径读取；PNG 解码使用最小 `png` crate 能力，而不是
-复用图像像素解码。解析限制为元数据文本总量，且通过 `spawn_blocking` 执行，
-不阻塞 Tauri 异步线程。
+服务只从允许的 PNG 路径读取；解析器使用受限的 PNG chunk 扫描，只读取
+`tEXt`、`zTXt`、`iTXt` 并跳过像素块，压缩文本使用有界 zlib 解压。这样既
+能读取 IDAT 前后的 metadata，也不会为详情查询解码完整原图。解析限制为
+元数据文本总量，且通过 `spawn_blocking` 执行，不阻塞 Tauri 异步线程。
 
 新增 `AssetDetailCommandService` 与命令：
 

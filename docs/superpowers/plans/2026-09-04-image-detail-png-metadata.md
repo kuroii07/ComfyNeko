@@ -6,7 +6,7 @@
 
 **Architecture:** Rust 为 asset UUID 提供受控的详情查询：验证资产与环境根目录、按需解析 PNG 文本块、用源文件大小和 mtime 缓存到 SQLite。React 保留现有媒体网格，在宽屏新增 sticky 右侧详情检查器；详情使用缩略图缓存预览而不直接访问原图。Run 只显示“尚未关联”，不在本计划创建或猜测关系。
 
-**Tech Stack:** Tauri 2、Rust、SQLx/SQLite、`png` crate、React 19、TypeScript、Vitest。
+**Tech Stack:** Tauri 2、Rust、SQLx/SQLite、`flate2`、React 19、TypeScript、Vitest。
 
 **Spec:** `docs/superpowers/specs/2026-09-04-image-detail-png-metadata-design.md`
 
@@ -134,7 +134,7 @@
 - Produces: `AssetDetailService::get(Uuid)`、
   `AssetDetailCommandService::get(Uuid)`、`get_asset_detail(asset_id)`。
 
-- [ ] **Step 1: 写出失败的服务与命令测试**
+- [x] **Step 1: 写出失败的服务与命令测试**
 
   以临时目录生成 PNG，写入 `prompt` 和 `workflow` tEXt 块，断言：
 
@@ -149,7 +149,7 @@
   越界路径 `unavailable`、未知 UUID `ASSET_NOT_FOUND`；记录源 PNG 的字节、
   长度和 mtime，并在每个分支后保持完全相同。
 
-- [ ] **Step 2: 运行测试确认红灯**
+- [x] **Step 2: 运行测试确认红灯**
 
   Run:
 
@@ -160,17 +160,18 @@
 
   Expected: 因详情服务和命令不存在而编译失败。
 
-- [ ] **Step 3: 实现受控解析与缓存失效**
+- [x] **Step 3: 实现受控解析与缓存失效**
 
-  在 `Cargo.toml` 增加 `png = "0.17"`。服务先验证资产、状态、根类别、
+  在 `Cargo.toml` 增加 `flate2 = "1"`。服务先验证资产、状态、根类别、
   环境根目录、扩展名和规范化路径；随后在 `spawn_blocking` 中读取当前
   metadata。缓存只有当 `parser_version == "v1"`、长度和 RFC3339 mtime
   均匹配时命中，否则重新解析。
 
-  解析器必须只收集键为 `prompt` 或 `workflow` 的文本块，累积每一字段与
-  总字节数并在超过上限时立刻返回 `unavailable`，不调用 upsert。对每个
-  收集结果使用 `serde_json::from_str::<serde_json::Value>` 判断状态，但把
-  原文本写入响应与缓存。
+  解析器必须顺序扫描 PNG chunk，仅收集键为 `prompt` 或 `workflow` 的
+  `tEXt/zTXt/iTXt` 文本块，跳过像素块；累积每一字段与总字节数并在超过
+  上限时立刻返回 `unavailable`，不调用 upsert。对每个收集结果使用
+  `serde_json::from_str::<serde_json::Value>` 判断状态，但把原文本写入
+  响应与缓存。
 
   注册命令时只接收 `asset_id: String`，复用既有 `parse_uuid`。命令错误映射：
 
@@ -180,7 +181,7 @@
   ASSET_METADATA_READ_ERROR
   ```
 
-- [ ] **Step 4: 运行服务、命令和缓存回归测试确认转绿**
+- [x] **Step 4: 运行服务、命令和缓存回归测试确认转绿**
 
   Run:
 
@@ -194,7 +195,7 @@
   Expected: 所有新增与 Task 1 测试通过；同一未变化 PNG 的第二次请求命中
   SQLite 缓存，源文件变化后重新解析。
 
-- [ ] **Step 5: 更新进度并提交推送**
+- [x] **Step 5: 更新进度并提交推送**
 
   更新三份项目状态文档，说明详情 IPC 已可用而前端检查器尚未完成；仅暂存
   Task 2 文件和已确认的 `Cargo.toml` 依赖变更，提交：

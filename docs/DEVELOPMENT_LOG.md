@@ -2,6 +2,16 @@
 
 本日志与 Git 提交同步维护。每条记录必须说明已验证与未验证事项，不以“已完成”替代测试证据。
 
+## 2026-09-04 — M2.4a Task 2：受控 PNG 解析与详情 IPC
+
+- 状态：PNG metadata 详情服务与 `get_asset_detail(asset_id)` 已完成；资产卡片选择和右侧检查器尚未实现。
+- 读取边界：服务只接受资产 UUID，重新验证图片类型、在场状态、输入/输出根目录、规范化路径和 `.png` 扩展名。它顺序扫描 `tEXt`、`zTXt`、`iTXt`，跳过像素数据，能读取 IDAT 前后 metadata；压缩文本使用有界 zlib 解压，单字段上限 2 MiB、总量上限 4 MiB。
+- 缓存：parser 版本、实际文件大小和修改时间完全匹配时复用 SQLite 缓存；源文件变化会重新读取。缺失、越界、损坏和超限只返回 `unavailable`，不缓存可能恢复的失败。
+- 契约：详情响应返回文件事实、`available/empty/invalid/unsupported/unavailable` metadata 状态、来源 `png_metadata`、prompt/workflow 原文和解析时间；不创建 Run，也不推断正负提示词、模型或工作流关系。
+- 测试先行：服务测试先确认详情类型与服务不存在；命令测试先确认命令模块不存在。实现后测试发现常规 decoder 不会暴露 IDAT 之后的文本块，改为受限 chunk scanner 后转绿。
+- 验证：`asset_detail_service` 1 项、`asset_detail_commands` 1 项、`asset_metadata_repository` 1 项通过；`cargo fmt` 已执行。完整 Rust/前端回归、右侧检查器和桌面视觉验收留待后续 Task。
+- 下一步：为图片卡片选择、异步详情状态和右侧检查器写前端红灯测试。
+
 ## 2026-09-04 — M2.4a Task 1：PNG metadata 缓存与领域契约
 
 - 状态：可失效 SQLite metadata 缓存已完成；PNG 文件解析、详情命令和前端检查器尚未实现。

@@ -4,11 +4,13 @@ use tauri::State;
 
 use crate::{
     commands::{
-        AssetQueryCommandService, AssetQueryRequest, AssetScanCommandService,
-        AssetThumbnailCommandService, CommandErrorPayload, EnvironmentCommandService,
+        AssetDetailCommandService, AssetQueryCommandService, AssetQueryRequest,
+        AssetScanCommandService, AssetThumbnailCommandService, CommandErrorPayload,
+        EnvironmentCommandService,
     },
     domain::{
         asset::AssetPage,
+        asset_detail::AssetDetail,
         asset_scan::{AssetScanIssue, AssetScanTaskSnapshot},
         asset_thumbnail::AssetThumbnail,
         environment::EnvironmentProfile,
@@ -136,6 +138,14 @@ pub async fn get_asset_thumbnail(
     asset_id: String,
     commands: State<'_, AssetThumbnailCommandService>,
 ) -> Result<AssetThumbnail, CommandErrorPayload> {
+    commands.get(parse_uuid(&asset_id)?).await
+}
+
+#[tauri::command]
+pub async fn get_asset_detail(
+    asset_id: String,
+    commands: State<'_, AssetDetailCommandService>,
+) -> Result<AssetDetail, CommandErrorPayload> {
     commands.get(parse_uuid(&asset_id)?).await
 }
 

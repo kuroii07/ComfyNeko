@@ -2,6 +2,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use super::asset::AssetListItem;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AssetMetadataState {
@@ -39,4 +41,35 @@ pub struct CachedAssetPngMetadata {
     pub prompt_text: Option<String>,
     pub workflow_text: Option<String>,
     pub parsed_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AssetMetadataSource {
+    PngMetadata,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AssetDetailMetadataState {
+    Available,
+    Empty,
+    Invalid,
+    Unsupported,
+    Unavailable,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AssetDetailMetadata {
+    pub state: AssetDetailMetadataState,
+    pub source: Option<AssetMetadataSource>,
+    pub prompt_text: Option<String>,
+    pub workflow_text: Option<String>,
+    pub parsed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AssetDetail {
+    pub asset: AssetListItem,
+    pub metadata: Option<AssetDetailMetadata>,
 }
