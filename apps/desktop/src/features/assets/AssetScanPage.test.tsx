@@ -12,13 +12,18 @@ import type {
   EnvironmentApi,
   EnvironmentProfile
 } from "../environments/environmentApi";
-import type { AssetPage, AssetQueryApi } from "./assetQueryApi";
+import type {
+  AssetListItem,
+  AssetPage,
+  AssetQueryApi
+} from "./assetQueryApi";
 import {
   type AssetScanApi,
   type AssetScanIssue,
   type AssetScanStatus,
   type AssetScanTask
 } from "./assetScanApi";
+import type { AssetThumbnailApi } from "./assetThumbnailApi";
 import { AssetScanPage } from "./AssetScanPage";
 
 const officeEnvironment: EnvironmentProfile = {
@@ -50,6 +55,7 @@ const homeEnvironment: EnvironmentProfile = {
 describe("AssetScanPage", () => {
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
@@ -121,6 +127,57 @@ describe("AssetScanPage", () => {
         })
       )
     );
+  });
+
+  it("requests thumbnails only for image cards and keeps media placeholders", async () => {
+    const observers = installIntersectionObservers();
+    const assets = [
+      createAsset("image-asset", "image", "preview-image.png"),
+      createAsset("video-asset", "video", "preview-motion.mp4"),
+      createAsset("audio-asset", "audio", "soundtrack.wav")
+    ];
+    const thumbnailApi: AssetThumbnailApi = {
+      get: vi.fn().mockResolvedValue({
+        assetId: "image-asset",
+        state: "ready",
+        sourceUrl: "asset://preview.webp"
+      })
+    };
+
+    render(
+      <AssetScanPage
+        assetQueryApi={createQueryApi({
+          items: assets,
+          page: 1,
+          page_size: 50,
+          total_items: assets.length,
+          total_pages: 1
+        })}
+        environmentApi={createEnvironmentApi([officeEnvironment])}
+        scanApi={createScanApi()}
+        thumbnailApi={thumbnailApi}
+      />
+    );
+
+    fireEvent.change(
+      await screen.findByRole("combobox", { name: "扫描环境" }),
+      {
+        target: { value: officeEnvironment.id }
+      }
+    );
+    expect(await screen.findByText("preview-image.png")).toBeInTheDocument();
+    expect(screen.getByText("preview-motion.mp4")).toBeInTheDocument();
+    expect(screen.getByText("soundtrack.wav")).toBeInTheDocument();
+    await waitFor(() => expect(observers).toHaveLength(1));
+
+    act(() => observers[0].trigger(true));
+    await waitFor(() =>
+      expect(thumbnailApi.get).toHaveBeenCalledWith("image-asset")
+    );
+
+    expect(thumbnailApi.get).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("模型文件")).not.toBeInTheDocument();
+    expect(screen.queryByText("工作流程")).not.toBeInTheDocument();
   });
 
   it("keeps completed scan metrics collapsed until the status control is opened", async () => {
@@ -553,6 +610,31 @@ function createQueryApi(
   };
 }
 
+function createAsset(
+  id: string,
+  kind: AssetListItem["kind"],
+  name: string
+): AssetListItem {
+  const extension = name.split(".").at(-1) ?? "bin";
+
+  return {
+    id,
+    environment_id: officeEnvironment.id,
+    root_kind: "output",
+    kind,
+    name,
+    directory: officeEnvironment.roots.output[0],
+    normalized_path: `${officeEnvironment.roots.output[0]}\\${name}`,
+    size_bytes: extension === "wav" ? 4_096 : 2_048,
+    modified_at: "2026-09-04T10:00:00Z",
+    fingerprint: null,
+    indexed_at: "2026-09-04T10:00:01Z",
+    last_seen_at: "2026-09-04T10:00:01Z",
+    availability: "present",
+    missing_since: null
+  };
+}
+
 function createTask(
   status: AssetScanStatus,
   overrides: Partial<AssetScanTask> = {}
@@ -592,4 +674,34 @@ function deferred<T>() {
   });
 
   return { promise, reject, resolve };
+}
+
+function installIntersectionObservers() {
+  const observers: Array<{ trigger(isIntersecting: boolean): void }> = [];
+
+  vi.stubGlobal(
+    "IntersectionObserver",
+    vi.fn((callback: IntersectionObserverCallback) => {
+      const observer = {
+        trigger(isIntersecting: boolean) {
+          callback(
+            [{ isIntersecting } as IntersectionObserverEntry],
+            observer as unknown as IntersectionObserver
+          );
+        }
+      };
+      observers.push(observer);
+      return {
+        disconnect: vi.fn(),
+        observe: vi.fn(),
+        root: null,
+        rootMargin: "160px",
+        takeRecords: () => [],
+        thresholds: [0],
+        unobserve: vi.fn()
+      };
+    })
+  );
+
+  return observers;
 }

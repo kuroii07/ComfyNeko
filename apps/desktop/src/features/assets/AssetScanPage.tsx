@@ -37,6 +37,7 @@ import {
   type AssetQueryApi,
   type AssetRootKind
 } from "./assetQueryApi";
+import { AssetThumbnail } from "./AssetThumbnail";
 import {
   tauriAssetScanApi,
   type AssetScanApi,
@@ -44,6 +45,10 @@ import {
   type AssetScanStatus,
   type AssetScanTask
 } from "./assetScanApi";
+import {
+  tauriAssetThumbnailApi,
+  type AssetThumbnailApi
+} from "./assetThumbnailApi";
 
 type AssetScanPageProps = {
   assetQueryApi?: AssetQueryApi;
@@ -51,6 +56,7 @@ type AssetScanPageProps = {
   locale?: Locale;
   onOpenEnvironments?(): void;
   scanApi?: AssetScanApi;
+  thumbnailApi?: AssetThumbnailApi;
 };
 
 type LoadState = "loading" | "ready" | "error";
@@ -88,7 +94,8 @@ export function AssetScanPage({
   environmentApi = tauriEnvironmentApi,
   locale = "zh-CN",
   onOpenEnvironments,
-  scanApi = tauriAssetScanApi
+  scanApi = tauriAssetScanApi,
+  thumbnailApi = tauriAssetThumbnailApi
 }: AssetScanPageProps) {
   const [environments, setEnvironments] = useState<EnvironmentProfile[]>([]);
   const [environmentLoadState, setEnvironmentLoadState] =
@@ -658,6 +665,7 @@ export function AssetScanPage({
             loadState={assetLoadState}
             locale={locale}
             selectedEnvironmentId={selectedEnvironmentId}
+            thumbnailApi={thumbnailApi}
             onNext={() =>
               setAssetPageNumber((current) =>
                 Math.min(current + 1, assetPage.total_pages || 1)
@@ -909,7 +917,8 @@ function AssetCollection({
   onNext,
   onPrevious,
   onRetry,
-  selectedEnvironmentId
+  selectedEnvironmentId,
+  thumbnailApi
 }: {
   assetPage: AssetPage;
   error: string | null;
@@ -919,6 +928,7 @@ function AssetCollection({
   onPrevious(): void;
   onRetry(): void;
   selectedEnvironmentId: string;
+  thumbnailApi: AssetThumbnailApi;
 }) {
   if (!selectedEnvironmentId) {
     return (
@@ -979,7 +989,12 @@ function AssetCollection({
     <>
       <div className="asset-library__grid" role="list">
         {assetPage.items.map((asset) => (
-          <AssetCard asset={asset} key={asset.id} locale={locale} />
+          <AssetCard
+            asset={asset}
+            key={asset.id}
+            locale={locale}
+            thumbnailApi={thumbnailApi}
+          />
         ))}
       </div>
       {assetPage.total_pages > 1 ? (
@@ -1016,10 +1031,12 @@ function AssetCollection({
 
 function AssetCard({
   asset,
-  locale
+  locale,
+  thumbnailApi
 }: {
   asset: AssetListItem;
   locale: Locale;
+  thumbnailApi: AssetThumbnailApi;
 }) {
   const Icon =
     asset.kind === "image"
@@ -1039,8 +1056,18 @@ function AssetCard({
       role="listitem"
     >
       <div className="asset-card__preview">
-        <Icon aria-hidden="true" />
-        <span>{translate(locale, assetKindLabelKey(asset.kind))}</span>
+        <AssetThumbnail
+          api={thumbnailApi}
+          asset={asset}
+          fallback={
+            <>
+              <Icon aria-hidden="true" />
+              <span>
+                {translate(locale, assetKindLabelKey(asset.kind))}
+              </span>
+            </>
+          }
+        />
       </div>
       <div className="asset-card__body">
         <strong title={asset.name}>{asset.name}</strong>
