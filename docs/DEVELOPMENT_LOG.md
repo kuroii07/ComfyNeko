@@ -2,6 +2,15 @@
 
 本日志与 Git 提交同步维护。每条记录必须说明已验证与未验证事项，不以“已完成”替代测试证据。
 
+## 2026-09-04 — M2.4a Task 1：PNG metadata 缓存与领域契约
+
+- 状态：可失效 SQLite metadata 缓存已完成；PNG 文件解析、详情命令和前端检查器尚未实现。
+- 数据：新增 `asset_png_metadata` 版本化迁移，以资产 UUID 为主键保存 parser 版本、源文件大小与修改时间、`available/empty/invalid` 解析状态、prompt/workflow 原文和解析时间。源文件不可用或超限不缓存为永久失败，避免文件恢复后保留陈旧错误。
+- 安全边界：本任务只升级 ComfyNeko 本地数据库，不读取、复制或修改任何真实 ComfyUI 文件；所有后续源文件读取仍必须经过环境根目录白名单。
+- 测试先行：先新增仓储测试并确认 `asset_detail` 与 `asset_metadata_repository` 接口不存在导致的预期编译失败；最小迁移、领域 DTO 和仓储实现后转绿。既有迁移回归的版本数从 3 更新为 4，验证重复打开不会重复执行迁移。
+- 验证：`asset_metadata_repository` 1 项通过；`database_migrations` 4 项通过；Rust 格式化已执行。完整 Rust/前端回归、PNG 解析和桌面视觉验收留待后续 Task。
+- 下一步：为受控 PNG `prompt`/`workflow` 文本块解析、缓存失效和 Tauri `get_asset_detail` 命令写红灯测试。
+
 ## 2026-09-04 — M2.3d 资产排序与分页一致性
 
 - 状态：默认排序与排序选择已完成自动化验收。真实桌面窗口尚待用户查看最终观感；独立 Tauri debug 构建没有完成，因为当前开发版锁定了同一个 Windows 可执行文件，未强行关闭用户窗口。

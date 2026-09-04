@@ -40,7 +40,7 @@
 - Produces: `AssetMetadataState::{Available, Empty, Invalid}`、
   `CachedAssetPngMetadata` 和 `AssetMetadataRepository::{get_png_metadata, upsert_png_metadata}`。
 
-- [ ] **Step 1: 写出失败的迁移与仓储测试**
+- [x] **Step 1: 写出失败的迁移与仓储测试**
 
   在 `asset_metadata_repository.rs` 使用内存数据库和已保存资产，断言：
 
@@ -60,7 +60,7 @@
   另加迁移测试：已有 `assets` 行在升级后仍存在、metadata 表存在且
   `asset_id` 外键指向 `assets(id)`。
 
-- [ ] **Step 2: 运行测试确认红灯**
+- [x] **Step 2: 运行测试确认红灯**
 
   Run:
 
@@ -71,7 +71,7 @@
 
   Expected: 因 migration、领域类型和仓储接口不存在而编译失败。
 
-- [ ] **Step 3: 添加最小迁移、领域与仓储实现**
+- [x] **Step 3: 添加最小迁移、领域与仓储实现**
 
   迁移创建以下列并限制缓存状态：
 
@@ -92,7 +92,7 @@
   只接受已完整构造的 `CachedAssetPngMetadata`，用
   `INSERT ... ON CONFLICT(asset_id) DO UPDATE` 原子覆盖同一资产的旧缓存。
 
-- [ ] **Step 4: 运行测试确认转绿并格式化**
+- [x] **Step 4: 运行测试确认转绿并格式化**
 
   Run:
 
@@ -104,7 +104,7 @@
 
   Expected: 新仓储与迁移测试通过，旧数据库升级测试仍通过。
 
-- [ ] **Step 5: 更新进度并提交推送**
+- [x] **Step 5: 更新进度并提交推送**
 
   在 README、`docs/05-路线图与验收标准.md`、`docs/DEVELOPMENT_LOG.md`
   记录“缓存与领域层完成，详情命令与 UI 未完成”；仅暂存本任务文件，提交：

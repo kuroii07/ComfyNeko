@@ -61,7 +61,7 @@ async fn reopening_a_migrated_database_does_not_repeat_alter_table_statements() 
         .await
         .unwrap();
 
-    assert_eq!(migration_count, 3);
+    assert_eq!(migration_count, 4);
 }
 
 #[tokio::test]
