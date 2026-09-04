@@ -100,6 +100,24 @@ impl AssetRepository {
         rows.into_iter().map(AssetRecord::try_from).collect()
     }
 
+    pub async fn get(&self, id: Uuid) -> Result<Option<AssetListItem>, AssetRepositoryError> {
+        sqlx::query(
+            r#"
+            SELECT id, environment_id, root_kind, kind, normalized_path, size_bytes,
+                   modified_at, fingerprint, indexed_at, last_seen_at, is_present,
+                   missing_since
+            FROM assets
+            WHERE id = ?
+            "#,
+        )
+        .bind(id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(AssetRepositoryError::database)?
+        .map(AssetListItem::try_from)
+        .transpose()
+    }
+
     pub async fn query(&self, query: &AssetQuery) -> Result<AssetPage, AssetRepositoryError> {
         if query.page == 0 || query.page_size == 0 {
             return Err(AssetRepositoryError::data(
